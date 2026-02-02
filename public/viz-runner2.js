@@ -111,7 +111,7 @@ export class Runner2 extends Visualizer {
                     const key = this.keys.find(k => k.note === note.note);
                     if (key) {
                         key.active = true;
-                        key.activeColor = this.getChannelColor(note.channel);
+                        key.activeColor = this.getChannelColor(note.channel, note.note);
                     }
                 }
 
@@ -129,7 +129,7 @@ export class Runner2 extends Visualizer {
                             y: noteBottomY - noteHeight,
                             w: key.width,
                             h: noteHeight,
-                            color: this.getChannelColor(note.channel),
+                            color: this.getChannelColor(note.channel, note.note),
                             isBlack: key.isBlack,
                             active: currentTime >= note.startTime
                         });
@@ -139,9 +139,25 @@ export class Runner2 extends Visualizer {
         }
     }
 
-    getChannelColor(channel) {
-        const hue = (channel * 137.5) % 360;
-        return `hsl(${hue}, 80%, 60%)`;
+    getChannelColor(channel, note) {
+        const handler = window.app && window.app.midiHandler;
+        const totalTracks = (handler && handler.midi && handler.midi.tracks.filter(t => t.notes.length > 0).length) || 1;
+
+        // Hue determined by channel, unless single instrument mode
+        let hue;
+        if (totalTracks === 1) {
+            hue = (note * 137.5) % 360; // Every note is unique color
+        } else {
+            hue = (channel * 137.5) % 360; // Every channel is unique color
+        }
+
+        // Shading based on note pitch (Octave 0 to 8)
+        // Higher notes = Lighter, Lower notes = Darker
+        const pitchNorm = (note - 21) / 87; // 0 to 1
+        const lightness = 45 + (pitchNorm * 35); // 45% to 80%
+        const saturation = 70 + (pitchNorm * 20); // 70% to 90%
+
+        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
     }
 
     render() {
