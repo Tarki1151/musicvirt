@@ -58,12 +58,17 @@ export class VideoExporter {
             return;
         }
 
+        // Resume context to ensure audio is flowing
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
         const dest = audioContext.createMediaStreamDestination();
 
-        // Connect Tone.js Master (MIDI)
+        // Connect Tone.js Destination (MIDI)
         try {
-            // Using Tone.getDestination() ensure we get all sound routed through Tone.js
-            Tone.getDestination().connect(dest);
+            // Using Tone.Destination connects to the final output node of Tone.js
+            Tone.Destination.connect(dest);
             console.log('🔗 Export: Connected Tone.js Master to recorder');
         } catch (e) {
             console.warn('⚠️ Export: Could not connect Tone.js to recorder:', e);
@@ -79,15 +84,28 @@ export class VideoExporter {
             }
         }
 
-        const audioTrack = dest.stream.getAudioTracks()[0];
-        if (audioTrack) {
-            canvasStream.addTrack(audioTrack);
-            console.log('✅ Export: Audio track added to stream');
-        } else {
+        const audioStream = dest.stream;
+        const audioTracks = audioStream.getAudioTracks();
+
+        // Ensure tracks are enabled
+        audioTracks.forEach(track => {
+            track.enabled = true;
+            console.log('🔊 Export: Audio track active:', track.label);
+        });
+
+        const tracks = [
+            ...canvasStream.getVideoTracks(),
+            ...audioTracks
+        ];
+
+        if (audioTracks.length === 0) {
             console.warn('⚠️ Export: No audio track found in destination stream');
+        } else {
+            console.log(`✅ Export: ${audioTracks.length} audio track(s) found and merged`);
         }
 
-        this.stream = canvasStream;
+        // 3. Unified Stream
+        this.stream = new MediaStream(tracks);
         this.chunks = [];
 
         // 3. Initialize Recorder
@@ -109,7 +127,7 @@ export class VideoExporter {
 
         console.log('⚙️ Export: Using MIME type:', selectedMime);
 
-        this.recorder = new MediaRecorder(canvasStream, {
+        this.recorder = new MediaRecorder(this.stream, {
             mimeType: selectedMime,
             videoBitsPerSecond: options.quality === '2k' ? 12000000 : 8000000, // 8-12 Mbps
             audioBitsPerSecond: 192000 // High quality audio
