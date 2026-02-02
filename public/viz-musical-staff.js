@@ -150,7 +150,7 @@ export class RoadRunner3 extends Visualizer {
 
         // Use midiEngine for playback time
         const currentTime = window.app.midiEngine ? window.app.midiEngine.getCurrentTime() : 0;
-        if (window.app.frameCount % 60 === 0) console.log('🎼 Runner3: Syncing with Engine Time:', currentTime.toFixed(2));
+        if (window.app.frameCount % 120 === 0) console.log('🎼 Runner3 (Build 1750): Syncing Time:', currentTime.toFixed(2));
 
         // Background
         ctx.fillStyle = '#0a0a12';

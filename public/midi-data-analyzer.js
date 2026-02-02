@@ -18,7 +18,7 @@ export class MidiHandler {
 
     async init(sharedContext) {
         this.isInitialized = true;
-        console.log('📊 MidiHandler: Data analyzer ready. (Build: 20260202_1730)');
+        console.log('📊 MidiHandler: Data analyzer ready. (Build: 20260202_1750)');
     }
 
     async loadMidiFile(file) {

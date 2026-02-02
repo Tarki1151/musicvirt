@@ -1,10 +1,10 @@
-import { AudioAnalyzer } from './audio-analyzer.js?v=20260202_1730';
-import { MidiHandler } from './midi-handler.js?v=20260202_1730';
-import { MidiEngine } from './midi-engine.js?v=20260202_1730';
-import { Visualizers } from './visualizers.js?v=20260202_1730';
-import { VideoExporter } from './video-exporter.js?v=20260202_1730';
+import { AudioAnalyzer } from './audio-analyzer.js?v=20260202_1750';
+import { MidiHandler } from './midi-data-analyzer.js?v=20260202_1750';
+import { MidiEngine } from './midi-audio-engine.js?v=20260202_1750';
+import { Visualizers } from './visualizers.js?v=20260202_1750';
+import { VideoExporter } from './video-exporter.js?v=20260202_1750';
 
-const BUILD_ID = '20260202_1730';
+const BUILD_ID = '20260202_1750';
 
 /**
  * Main Application Module
@@ -397,8 +397,18 @@ class AudioVisualizerApp {
         const currentTime = this.isMidiMode ? this.midiEngine.getCurrentTime() : 0;
         const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
 
+        // Update UI Progress for MIDI
+        if (this.isMidiMode && this.isPlaying && this.midiEngine.midi) {
+            if (this.elements.progress) {
+                this.elements.progress.value = (currentTime / this.midiEngine.midi.duration) * 100;
+            }
+            if (this.elements.trackTime) {
+                this.elements.trackTime.innerText = `${this.formatTime(currentTime)} / ${this.formatTime(this.midiEngine.midi.duration)}`;
+            }
+        }
+
         // Central Background Clearing
-        this.ctx.fillStyle = '#10111a';
+        this.ctx.fillStyle = '#0a0a12';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.visualizers[this.currentModeIndex]) {
