@@ -88,8 +88,8 @@ export class RoadRunner3 extends Visualizer {
         this.showMidiWarning = !analysis.isMidi;
         if (this.showMidiWarning) return;
 
-        const midiHandler = window.app.midiHandler;
-        const currentTime = (midiHandler && typeof midiHandler.getCurrentTime === 'function') ? midiHandler.getCurrentTime() : 0;
+        const currentTime = (this.analysis && this.analysis.currentTime) || 0;
+        const midiHandler = window.app && window.app.midiHandler;
 
         // Sync Tracks with MIDI Channel Data
         if (analysis.channelData && analysis.channelData.length > 0) {
@@ -103,11 +103,10 @@ export class RoadRunner3 extends Visualizer {
                 track.channelId = chId;
 
                 // Sync Name
-                if (midiHandler && midiHandler.midi) {
+                if (midiHandler.midi) {
                     const trackMeta = midiHandler.midi.tracks.find(t => t.channel === chId);
                     if (trackMeta && trackMeta.instrument) {
-                        const gmName = midiHandler.constructor.GM_MAP ? midiHandler.constructor.GM_MAP[trackMeta.instrument.number] : null;
-                        track.name = (gmName || trackMeta.instrument.name || `CH ${chId}`).replace(/_/g, ' ').toUpperCase();
+                        track.name = (midiHandler.constructor.GM_MAP[trackMeta.instrument.number] || trackMeta.instrument.name).replace(/_/g, ' ').toUpperCase();
                     }
                 }
 
@@ -146,13 +145,9 @@ export class RoadRunner3 extends Visualizer {
 
         const width = this.canvas.width;
         const playheadX = width * this.playheadX;
-        const pixelsPerSecond = 300; // Increased for better feel
-        const midiHandler = window.app.midiHandler;
-        const currentTime = (midiHandler && typeof midiHandler.getCurrentTime === 'function') ? midiHandler.getCurrentTime() : 0;
+        const pixelsPerSecond = 200;
 
-        if (window.app.frameCount % 180 === 0) {
-            console.log('🎼 Runner3 Debug: Time =', currentTime.toFixed(2), 'Nodes =', this.tracks[0]?.nodes.length);
-        }
+        const currentTime = (this.analysis && this.analysis.currentTime) || 0;
 
         // Background
         ctx.fillStyle = '#0a0a12';
@@ -177,12 +172,12 @@ export class RoadRunner3 extends Visualizer {
 
             // Clef Symbol
             ctx.fillStyle = colorStr;
-            ctx.font = `${this.noteSize * 1.8}px serif`;
+            ctx.font = `${this.noteSize * 1.8}px "Serif"`;
             ctx.textAlign = 'center';
             ctx.fillText(track.clef === 'treble' ? '\u{1D11E}' : '\u{1D122}', 40, baseY + (this.noteSize * 0.4));
 
             // Track Label
-            ctx.font = `bold ${Math.max(9, this.noteSize * 0.5)}px sans-serif`;
+            ctx.font = `bold ${Math.max(9, this.noteSize * 0.5)}px Inter`;
             ctx.textAlign = 'left';
             ctx.fillText(track.name, 80, baseY - (lineSpacing * 2.5));
 
@@ -246,12 +241,12 @@ export class RoadRunner3 extends Visualizer {
                     ctx.shadowBlur = 20 * scale;
                     ctx.shadowColor = colorStr;
                     ctx.fillStyle = '#fff';
-                    ctx.font = `${currentNoteSize * 1.2}px serif`;
+                    ctx.font = `${currentNoteSize * 1.2}px "Serif"`;
                 } else {
                     // Slower fade out for better visibility window
                     ctx.globalAlpha = Math.max(0.1, 1 - (dist / 5.0));
                     ctx.fillStyle = colorStr;
-                    ctx.font = `${currentNoteSize}px serif`;
+                    ctx.font = `${currentNoteSize}px "Serif"`;
                 }
 
                 ctx.textAlign = 'center';
