@@ -29,8 +29,8 @@ export class RoadRunner3 extends Visualizer {
             eighth: '\u266A',
             beamed: '\u266B',
             sixteenth: '\u266C',
-            treble: '\u1D11E',
-            bass: '\u1D122',
+            treble: '\u{1D11E}',
+            bass: '\u{1D122}',
             flat: '\u266D',
             sharp: '\u266F',
             natural: '\u266E'
@@ -102,10 +102,11 @@ export class RoadRunner3 extends Visualizer {
                 track.channelId = chId;
 
                 // Sync Name
-                if (midiHandler.midi) {
+                if (midiHandler && midiHandler.midi) {
                     const trackMeta = midiHandler.midi.tracks.find(t => t.channel === chId);
                     if (trackMeta && trackMeta.instrument) {
-                        track.name = (midiHandler.constructor.GM_MAP[trackMeta.instrument.number] || trackMeta.instrument.name).replace(/_/g, ' ').toUpperCase();
+                        const gmName = midiHandler.constructor.GM_MAP ? midiHandler.constructor.GM_MAP[trackMeta.instrument.number] : null;
+                        track.name = (gmName || trackMeta.instrument.name || `CH ${chId}`).replace(/_/g, ' ').toUpperCase();
                     }
                 }
 
@@ -171,12 +172,12 @@ export class RoadRunner3 extends Visualizer {
 
             // Clef Symbol
             ctx.fillStyle = colorStr;
-            ctx.font = `${this.noteSize * 1.8}px "Serif"`;
+            ctx.font = `${this.noteSize * 1.8}px serif`;
             ctx.textAlign = 'center';
             ctx.fillText(track.clef === 'treble' ? '\u{1D11E}' : '\u{1D122}', 40, baseY + (this.noteSize * 0.4));
 
             // Track Label
-            ctx.font = `bold ${Math.max(9, this.noteSize * 0.5)}px Inter`;
+            ctx.font = `bold ${Math.max(9, this.noteSize * 0.5)}px sans-serif`;
             ctx.textAlign = 'left';
             ctx.fillText(track.name, 80, baseY - (lineSpacing * 2.5));
 
@@ -240,12 +241,12 @@ export class RoadRunner3 extends Visualizer {
                     ctx.shadowBlur = 20 * scale;
                     ctx.shadowColor = colorStr;
                     ctx.fillStyle = '#fff';
-                    ctx.font = `${currentNoteSize * 1.2}px "Serif"`;
+                    ctx.font = `${currentNoteSize * 1.2}px serif`;
                 } else {
                     // Slower fade out for better visibility window
                     ctx.globalAlpha = Math.max(0.1, 1 - (dist / 5.0));
                     ctx.fillStyle = colorStr;
-                    ctx.font = `${currentNoteSize}px "Serif"`;
+                    ctx.font = `${currentNoteSize}px serif`;
                 }
 
                 ctx.textAlign = 'center';
