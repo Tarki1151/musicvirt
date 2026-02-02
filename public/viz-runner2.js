@@ -96,7 +96,7 @@ export class Runner2 extends Visualizer {
             return;
         }
 
-        const currentTime = analysis.currentTime || 0;
+        const currentTime = (handler && typeof handler.getCurrentTime === 'function') ? handler.getCurrentTime() : 0;
         this.fallingNotes = [];
 
         // Reset Keys

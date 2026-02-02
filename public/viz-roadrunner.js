@@ -144,7 +144,7 @@ export class RoadRunner extends Visualizer {
         }
 
         const energies = analysis.channelData ? analysis.channelData.map(c => c.energy || 0) : [];
-        const currentTime = analysis.currentTime || 0;
+        const currentTime = (window.app.midiHandler && typeof window.app.midiHandler.getCurrentTime === 'function') ? window.app.midiHandler.getCurrentTime() : 0;
 
         // Update tracks
         this.tracks.forEach((track, i) => {

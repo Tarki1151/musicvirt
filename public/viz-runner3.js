@@ -88,8 +88,8 @@ export class RoadRunner3 extends Visualizer {
         this.showMidiWarning = !analysis.isMidi;
         if (this.showMidiWarning) return;
 
-        const currentTime = analysis.currentTime || 0;
         const midiHandler = window.app.midiHandler;
+        const currentTime = (midiHandler && typeof midiHandler.getCurrentTime === 'function') ? midiHandler.getCurrentTime() : 0;
 
         // Sync Tracks with MIDI Channel Data
         if (analysis.channelData && analysis.channelData.length > 0) {
@@ -146,9 +146,13 @@ export class RoadRunner3 extends Visualizer {
 
         const width = this.canvas.width;
         const playheadX = width * this.playheadX;
-        const pixelsPerSecond = 200;
+        const pixelsPerSecond = 300; // Increased for better feel
+        const midiHandler = window.app.midiHandler;
+        const currentTime = (midiHandler && typeof midiHandler.getCurrentTime === 'function') ? midiHandler.getCurrentTime() : 0;
 
-        const currentTime = (this.analysis && this.analysis.currentTime) || 0;
+        if (window.app.frameCount % 180 === 0) {
+            console.log('🎼 Runner3 Debug: Time =', currentTime.toFixed(2), 'Nodes =', this.tracks[0]?.nodes.length);
+        }
 
         // Background
         ctx.fillStyle = '#0a0a12';

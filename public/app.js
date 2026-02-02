@@ -398,6 +398,10 @@ class AudioVisualizerApp {
         const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
         analysis.currentTime = currentTime;
 
+        if (this.frameCount % 180 === 0 && this.isMidiMode) {
+            console.log(`⏱️ App Clock [MIDI]: ${currentTime.toFixed(3)}s`);
+        }
+
         // Central Background Clearing
         this.ctx.fillStyle = '#10111a';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
