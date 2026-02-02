@@ -50,16 +50,30 @@ export class VideoExporter {
         // 2. Prepare Streams
         const canvasStream = this.canvas.captureStream(60);
 
-        // Capture Audio
-        const audioContext = Tone.context;
+        // Capture Audio - Use the main app's context to avoid "Overload resolution failed" (cross-context)
+        const audioContext = this.app.analyzer.audioContext;
+        if (!audioContext) {
+            console.error('❌ Export Error: AudioContext not found.');
+            this.isRecording = false;
+            return;
+        }
+
         const dest = audioContext.createMediaStreamDestination();
 
-        // Connect Tone.js (MIDI)
-        Tone.Destination.connect(dest);
+        // Connect Tone.js (MIDI) - Ensure we use the raw destination connection
+        try {
+            Tone.Destination.connect(dest);
+        } catch (e) {
+            console.warn('⚠️ Export: Could not connect Tone.js to recorder:', e);
+        }
 
         // Connect Standard Audio (Analyzer) if active
         if (this.app.analyzer && this.app.analyzer.gainNode) {
-            this.app.analyzer.gainNode.connect(dest);
+            try {
+                this.app.analyzer.gainNode.connect(dest);
+            } catch (e) {
+                console.warn('⚠️ Export: Could not connect Analyzer to recorder:', e);
+            }
         }
 
         const audioTrack = dest.stream.getAudioTracks()[0];
