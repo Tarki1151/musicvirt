@@ -86,6 +86,7 @@ export class Runner2 extends Visualizer {
     }
 
     update(analysis, dt) {
+        super.update(analysis, dt);
         if (!this.canvas) return;
         this.showMidiWarning = !analysis.isMidi;
 

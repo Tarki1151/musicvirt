@@ -83,6 +83,7 @@ export class RoadRunner3 extends Visualizer {
     }
 
     update(analysis, dt) {
+        super.update(analysis, dt);
         this.isMidiMode = analysis.isMidi;
         this.showMidiWarning = !analysis.isMidi;
         if (this.showMidiWarning) return;

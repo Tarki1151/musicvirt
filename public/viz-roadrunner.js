@@ -104,6 +104,7 @@ export class RoadRunner extends Visualizer {
     getTotalChannels() { return this.totalChannels; }
 
     update(analysis, dt) {
+        super.update(analysis, dt);
         if (!this.canvas) return;
 
         // Analysis based update
