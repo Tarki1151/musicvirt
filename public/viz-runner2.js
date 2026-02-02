@@ -98,18 +98,24 @@ export class Runner2 extends Visualizer {
         const currentTime = handler.getCurrentTime();
         this.fallingNotes = [];
 
+        // Check if single instrument (exclude drum channel if necessary, but here we count tracks with notes)
+        const channelIds = handler.getChannelIds ? handler.getChannelIds() : [];
+        const isSingleInstrument = channelIds.length <= 1;
+
         // Reset Keys
         this.keys.forEach(k => k.active = false);
 
         // Process notes
         if (handler.notes) {
             handler.notes.forEach(note => {
+                const noteColor = isSingleInstrument ? this.getNoteColor(note.note) : this.getChannelColor(note.channel);
+
                 // Active state
                 if (currentTime >= note.startTime && currentTime < note.endTime) {
                     const key = this.keys.find(k => k.note === note.note);
                     if (key) {
                         key.active = true;
-                        key.activeColor = this.getChannelColor(note.channel);
+                        key.activeColor = noteColor;
                     }
                 }
 
@@ -127,7 +133,7 @@ export class Runner2 extends Visualizer {
                             y: noteBottomY - noteHeight,
                             w: key.width,
                             h: noteHeight,
-                            color: this.getChannelColor(note.channel),
+                            color: noteColor,
                             isBlack: key.isBlack,
                             active: currentTime >= note.startTime
                         });
@@ -140,6 +146,12 @@ export class Runner2 extends Visualizer {
     getChannelColor(channel) {
         const hue = (channel * 137.5) % 360;
         return `hsl(${hue}, 80%, 60%)`;
+    }
+
+    getNoteColor(note) {
+        // Chromatic rainbow: Each of the 12 notes gets a unique hue
+        const hue = (note * 30) % 360; // 360 / 12 = 30 degrees per semi-tone
+        return `hsl(${hue}, 85%, 65%)`;
     }
 
     render() {
