@@ -381,7 +381,13 @@ class AudioVisualizerApp {
             this.fpsUpdateTime = time;
         }
 
-        const analysis = this.isMidiMode ? this.midiHandler.getAnalysis() : this.analyzer.getAnalysis();
+        const currentTime = this.isMidiMode ? this.midiHandler.getCurrentTime() : 0;
+        const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
+
+        // Central Background Clearing
+        this.ctx.fillStyle = '#10111a';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
         if (this.visualizers[this.currentModeIndex]) {
             this.visualizers[this.currentModeIndex].update(analysis, dt);
             this.visualizers[this.currentModeIndex].render();

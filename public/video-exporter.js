@@ -20,7 +20,10 @@ export class VideoExporter {
     async startRecording(options = { ratio: '16:9', quality: '1080p' }) {
         if (this.isRecording) return;
 
-        console.log('📹 Export: Starting recording with options:', options);
+        // 1. Set State EARLY to prevent app.onResize() from resetting size
+        this.isRecording = true;
+
+        console.log('📹 Export: Starting recording session...');
 
         // 1. Set Resolution
         this.originalWidth = window.innerWidth;
@@ -40,15 +43,25 @@ export class VideoExporter {
         // Apply resolution to canvas
         this.canvas.width = targetW;
         this.canvas.height = targetH;
-        this.app.onResize(); // Triger visualizers to resize
+
+        // Force visualizers to adapt to new size
+        this.app.visualizers.forEach(v => v.resize(targetW, targetH));
 
         // 2. Prepare Streams
-        const canvasStream = this.canvas.captureStream(60); // 60 FPS capture
+        const canvasStream = this.canvas.captureStream(60);
 
-        // Capture Tone.js Audio
+        // Capture Audio
         const audioContext = Tone.context;
         const dest = audioContext.createMediaStreamDestination();
+
+        // Connect Tone.js (MIDI)
         Tone.Destination.connect(dest);
+
+        // Connect Standard Audio (Analyzer) if active
+        if (this.app.analyzer && this.app.analyzer.gainNode) {
+            this.app.analyzer.gainNode.connect(dest);
+        }
+
         const audioTrack = dest.stream.getAudioTracks()[0];
 
         if (audioTrack) {
@@ -92,9 +105,9 @@ export class VideoExporter {
             this.app.onResize();
         };
 
-        this.recorder.start();
-        this.isRecording = true;
+        this.recorder.start(100); // Capture in 100ms slices for stability
         this.startTime = Date.now();
+        console.log('✅ Export: Recording started at', targetW, 'x', targetH);
     }
 
     stopRecording() {

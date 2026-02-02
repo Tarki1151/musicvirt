@@ -149,7 +149,8 @@ export class AudioAnalyzer {
             highNorm: this.smoothedHigh / 255,
             spectralCentroid: this.calculateSpectralCentroid(),
             bars,
-            waveform
+            waveform,
+            isMidi: false
         };
     }
 

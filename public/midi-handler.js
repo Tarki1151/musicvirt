@@ -328,10 +328,28 @@ export class MidiHandler {
             for (let j = 0; j < 4; j++) max = Math.max(max, spectrum[start + j]);
             bars.push(max / 255);
         }
+        const totalEnergy = Math.min(1, bass + mid + high);
+
+        // Calculate spectral centroid for MIDI (average pitch)
+        let weightedSum = 0, weightTotal = 0;
+        activeNotes.forEach(n => {
+            weightedSum += n.note * n.velocity;
+            weightTotal += n.velocity;
+        });
+        const spectralCentroid = weightTotal > 0 ? (weightedSum / weightTotal) : 60;
+
         return {
-            spectrum, waveform: new Uint8Array(128).fill(128), bars,
-            bass: Math.min(1, bass), mid: Math.min(1, mid), high: Math.min(1, high),
-            totalEnergy: Math.min(1, bass + mid + high) * 255,
+            spectrum,
+            waveform: new Uint8Array(128).fill(128),
+            bars,
+            bass: Math.min(1, bass),
+            mid: Math.min(1, mid),
+            high: Math.min(1, high),
+            bassNorm: Math.min(1, bass),
+            midNorm: Math.min(1, mid),
+            highNorm: Math.min(1, high),
+            totalEnergy: totalEnergy * 255,
+            spectralCentroid: spectralCentroid,
             isBeat: activeNotes.some(n => Math.abs(n.startTime - currentTime) < 0.02),
             channelData: this.getChannelAnalysis(currentTime),
             isMidi: true
