@@ -127,6 +127,32 @@
                         <label for="trailsToggle">Nota İzleri (Comet Tail)</label>
                     </div>
                 </div>
+
+                <div class="setting-group export-group">
+                    <label>Video Export (Beta)</label>
+                    <div class="export-options">
+                        <div class="export-option-row">
+                            <span>Format:</span>
+                            <select id="exportRatio">
+                                <option value="16:9">16:9 (Yatay)</option>
+                                <option value="9:16">9:16 (Dikey)</option>
+                            </select>
+                        </div>
+                        <div class="export-option-row">
+                            <span>Kalite:</span>
+                            <select id="exportQuality">
+                                <option value="1080p">1080p (Full HD)</option>
+                                <option value="2k">2K (High Res)</option>
+                            </select>
+                        </div>
+                        <button id="startExportBtn" class="export-btn">
+                            <span class="btn-icon">⏺️</span> Kaydı Başlat
+                        </button>
+                        <div id="exportStatus" class="export-status" style="display: none;">
+                            <span class="record-dot"></span> Kaydediliyor... <span id="recordTime">00:00</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

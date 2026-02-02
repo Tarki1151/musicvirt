@@ -1,6 +1,7 @@
 import { AudioAnalyzer } from './audio-analyzer.js';
 import { MidiHandler } from './midi-handler.js';
 import { Visualizers } from './visualizers.js';
+import { VideoExporter } from './video-exporter.js';
 
 /**
  * Main Application Module
@@ -15,12 +16,14 @@ class AudioVisualizerApp {
         this.currentModeIndex = 0;
         this.isPlaying = false;
         this.isMidiMode = false;
+        this.videoExporter = new VideoExporter(this.canvas, this);
 
         // Element Selectors - Updated to match index.html
         this.elements = {
             playBtn: document.getElementById('playBtn'),
             fileInput: document.getElementById('audioFile'),
             modeBtns: document.querySelectorAll('.mode-btn'),
+            trackName: document.getElementById('trackName'),
             toast: document.getElementById('toast'),
             progress: document.getElementById('progress'),
             trackTime: document.getElementById('trackTime'),
@@ -28,7 +31,8 @@ class AudioVisualizerApp {
             dropZone: document.getElementById('dropZone'),
             settingsPanel: document.getElementById('settingsPanel'),
             settingsToggle: document.getElementById('settingsToggle'),
-            closeSettings: document.getElementById('closeSettings')
+            closeSettings: document.getElementById('closeSettings'),
+            fpsCounter: document.getElementById('fps')
         };
 
         this.lastTime = 0;
@@ -39,16 +43,13 @@ class AudioVisualizerApp {
     async init() {
         window.onerror = (msg) => this.showToast(`Hata: ${msg}`);
         try {
-            this.resizeCanvas();
-            window.addEventListener('resize', () => this.resizeCanvas());
+            this.onResize();
+            window.addEventListener('resize', () => this.onResize());
             this.initVisualizers();
-
-            // Map additional elements
-            this.elements.fpsCounter = document.getElementById('fps');
-            this.elements.currentMode = document.getElementById('currentMode');
 
             this.setupEventListeners();
             this.setupSettingsListeners();
+            this.setupExportListeners();
 
             // Audio will be initialized on first user gesture
             requestAnimationFrame((t) => this.animate(t));
@@ -145,7 +146,7 @@ class AudioVisualizerApp {
         if (sensRange) {
             sensRange.addEventListener('input', (e) => {
                 const val = parseFloat(e.target.value);
-                this.analyzer.setSensitivity(val);
+                this.visualizers.forEach(v => v.sensitivityMultiplier = val);
                 if (sensVal) sensVal.innerText = val.toFixed(1);
             });
         }
@@ -242,6 +243,36 @@ class AudioVisualizerApp {
         });
     }
 
+    setupExportListeners() {
+        const startBtn = document.getElementById('startExportBtn');
+        const status = document.getElementById('exportStatus');
+        const ratioSelect = document.getElementById('exportRatio');
+        const qualitySelect = document.getElementById('exportQuality');
+
+        if (startBtn) {
+            startBtn.addEventListener('click', async () => {
+                if (!this.videoExporter.isRecording) {
+                    const options = { ratio: ratioSelect.value, quality: qualitySelect.value };
+                    try {
+                        await this.videoExporter.startRecording(options);
+                        startBtn.innerHTML = '<span class="btn-icon">⏹️</span> Kaydı Durdur';
+                        startBtn.classList.add('recording');
+                        status.style.display = 'flex';
+                    } catch (e) {
+                        console.error('Export failed:', e);
+                        this.showToast('Kayıt Başlatılamadı');
+                    }
+                } else {
+                    this.videoExporter.stopRecording();
+                    startBtn.innerHTML = '<span class="btn-icon">⏺️</span> Kaydı Başlat';
+                    startBtn.classList.remove('recording');
+                    status.style.display = 'none';
+                    this.showToast('Video Kaydedildi');
+                }
+            });
+        }
+    }
+
     async handleFileSelect(event) {
         const file = event.target.files[0];
         if (file) this.processFile(file);
@@ -251,6 +282,11 @@ class AudioVisualizerApp {
         console.log('🚀 App: Processing file:', file.name);
         this.showToast('Yükleniyor...');
 
+        // Track Name
+        if (this.elements.trackName) {
+            this.elements.trackName.innerText = file.name.replace(/\.[^/.]+$/, "");
+        }
+
         // Hide drop zone, show controls
         if (this.elements.dropZone) this.elements.dropZone.style.display = 'none';
         if (this.elements.controls) this.elements.controls.style.display = 'flex';
@@ -258,16 +294,10 @@ class AudioVisualizerApp {
         if (file.name.toLowerCase().endsWith('.mid') || file.name.toLowerCase().endsWith('.midi')) {
             console.log('🎹 App: MIDI format detected.');
             this.isMidiMode = true;
-
-            // Initialize Audio Systems on first file load (gesture)
             await this.analyzer.init();
             await this.midiHandler.init(this.analyzer.audioContext);
-
             const midi = await this.midiHandler.loadMidiFile(file);
             console.log('✅ App: MIDI processing complete.');
-            if (this.elements.trackName) {
-                this.elements.trackName.innerText = file.name.replace(/\.[^/.]+$/, "");
-            }
             if (this.elements.trackTime) {
                 this.elements.trackTime.innerText = `0:00 / ${this.formatTime(midi.duration)}`;
             }
@@ -278,9 +308,6 @@ class AudioVisualizerApp {
             await this.analyzer.init();
             await this.analyzer.loadAudio(file);
             console.log('✅ App: Audio loading complete.');
-            if (this.elements.trackName) {
-                this.elements.trackName.innerText = file.name.replace(/\.[^/.]+$/, "");
-            }
             this.startPlayback();
         }
     }
@@ -289,7 +316,6 @@ class AudioVisualizerApp {
         if (this.isMidiMode) {
             this.midiHandler.play();
         } else {
-            // Handle standard audio via analyzer
             if (this.analyzer.play) this.analyzer.play();
         }
         this.isPlaying = true;
@@ -322,92 +348,61 @@ class AudioVisualizerApp {
 
     switchMode(index) {
         if (index < 0 || index >= this.visualizers.length) return;
-
-        const viz = this.visualizers[index];
-        console.log(`Switching to mode: ${index} (${viz.getName()})`);
         this.currentModeIndex = index;
-
-        // Update UI
-        this.elements.modeBtns.forEach((btn, i) => {
-            btn.classList.toggle('active', i === index);
-        });
-
-        if (this.elements.currentMode) {
-            this.elements.currentMode.innerText = viz.getName();
-        }
-
-        this.showToast(`Görsel: ${viz.getName()}`);
+        this.elements.modeBtns.forEach((btn, i) => btn.classList.toggle('active', i === index));
+        this.showToast(`Görsel: ${this.visualizers[index].getName()}`);
     }
 
-    resizeCanvas() {
-        if (!this.canvas) return;
+    onResize() {
+        if (this.videoExporter && this.videoExporter.isRecording) {
+            this.visualizers.forEach(v => v.resize(this.canvas.width, this.canvas.height));
+            return;
+        }
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
-        this.visualizers.forEach(v => {
-            if (v && v.resize) v.resize(this.canvas.width, this.canvas.height);
-        });
+        this.visualizers.forEach(v => v.resize(this.canvas.width, this.canvas.height));
     }
 
     animate(time) {
         if (!this.lastTime) this.lastTime = time;
-        const dt = (time - this.lastTime) / 1000 || 0.008; // Base on ~120fps if possible
+        const dt = (time - this.lastTime) / 1000 || 0.008;
         this.lastTime = time;
 
-        // FPS Calculation
+        if (this.videoExporter && this.videoExporter.isRecording) {
+            const recordTimeEl = document.getElementById('recordTime');
+            if (recordTimeEl) recordTimeEl.innerText = this.videoExporter.getRecordingTime();
+        }
+
         this.frameCount++;
         if (time > this.fpsUpdateTime + 1000) {
             const currentFps = Math.round((this.frameCount * 1000) / (time - this.fpsUpdateTime));
-            if (this.elements.fpsCounter) {
-                this.elements.fpsCounter.innerText = `${currentFps} FPS`;
-            }
-            this.fpsUpdateTime = time;
+            if (this.elements.fpsCounter) this.elements.fpsCounter.innerText = `${currentFps} FPS`;
             this.frameCount = 0;
+            this.fpsUpdateTime = time;
         }
 
-        let analysis;
-        if (this.isMidiMode && this.isPlaying) {
-            const mTime = this.midiHandler.getCurrentTime();
-            analysis = this.midiHandler.getAnalysis(mTime);
-
-            // Update Progress
-            const duration = this.midiHandler.midi ? this.midiHandler.midi.duration : 1;
-            const progress = (mTime / duration) * 100;
-            if (this.elements.progress) this.elements.progress.value = progress;
-            if (this.elements.trackTime) {
-                this.elements.trackTime.innerText = `${this.formatTime(mTime)} / ${this.formatTime(duration)}`;
-            }
-        } else {
-            analysis = this.analyzer.analyze();
-        }
-
-        // Background Clear
-        this.ctx.fillStyle = 'rgba(10, 11, 15, 0.4)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-        const viz = this.visualizers[this.currentModeIndex];
-        if (viz) {
-            viz.update(analysis, dt);
-            viz.render();
+        const analysis = this.isMidiMode ? this.midiHandler.getAnalysis() : this.analyzer.getAnalysis();
+        if (this.visualizers[this.currentModeIndex]) {
+            this.visualizers[this.currentModeIndex].update(analysis, dt);
+            this.visualizers[this.currentModeIndex].render();
         }
 
         requestAnimationFrame((t) => this.animate(t));
     }
 
-    formatTime(sec) {
-        if (!sec || isNaN(sec)) return "0:00";
-        const m = Math.floor(sec / 60);
-        const s = Math.floor(sec % 60);
-        return `${m}:${s.toString().padStart(2, '0')}`;
-    }
-
-    showToast(msg) {
+    showToast(message) {
         if (!this.elements.toast) return;
-        this.elements.toast.innerText = msg;
+        this.elements.toast.innerText = message;
         this.elements.toast.classList.add('show');
         setTimeout(() => this.elements.toast.classList.remove('show'), 2000);
     }
+
+    formatTime(seconds) {
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        return `${m}:${s.toString().padStart(2, '0')}`;
+    }
 }
 
-// Start the app
 window.app = new AudioVisualizerApp();
 window.app.init();

@@ -327,6 +327,101 @@ canvas {
     box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
 }
 
+/* Export Settings */
+.export-group {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    margin-top: 10px;
+}
+
+.export-option-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+}
+
+.export-option-row select {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    outline: none;
+}
+
+.export-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--accent-gradient);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.export-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+}
+
+.export-btn.recording {
+    background: #ef4444;
+    animation: pulse 1.5s infinite;
+}
+
+.export-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 0.75rem;
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.record-dot {
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.4;
+    }
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
 /* Drop Zone */
 .drop-zone {
     position: absolute;
