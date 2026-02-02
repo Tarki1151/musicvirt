@@ -88,7 +88,8 @@ export class RoadRunner3 extends Visualizer {
         if (this.showMidiWarning) return;
 
         const midiHandler = window.app.midiHandler;
-        const currentTime = midiHandler.getCurrentTime();
+        const midiEngine = window.app.midiEngine;
+        const currentTime = midiEngine.getCurrentTime();
 
         // Sync Tracks with MIDI Channel Data
         if (analysis.channelData && analysis.channelData.length > 0) {
@@ -105,7 +106,8 @@ export class RoadRunner3 extends Visualizer {
                 if (midiHandler.midi) {
                     const trackMeta = midiHandler.midi.tracks.find(t => t.channel === chId);
                     if (trackMeta && trackMeta.instrument) {
-                        track.name = (midiHandler.constructor.GM_MAP[trackMeta.instrument.number] || trackMeta.instrument.name).replace(/_/g, ' ').toUpperCase();
+                        const cleanName = window.app.midiEngine.GM_MAP[trackMeta.instrument.number] || trackMeta.instrument.name;
+                        track.name = cleanName.replace(/_/g, ' ').toUpperCase();
                     }
                 }
 

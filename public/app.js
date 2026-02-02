@@ -1,5 +1,5 @@
-import { AudioAnalyzer } from './audio-analyzer.js';
 import { MidiHandler } from './midi-handler.js';
+import { MidiEngine } from './midi-engine.js';
 import { Visualizers } from './visualizers.js';
 import { VideoExporter } from './video-exporter.js';
 
@@ -12,6 +12,7 @@ class AudioVisualizerApp {
         this.ctx = this.canvas.getContext('2d');
         this.analyzer = new AudioAnalyzer(2048);
         this.midiHandler = new MidiHandler();
+        this.midiEngine = new MidiEngine();
         this.visualizers = [];
         this.currentModeIndex = 0;
         this.isPlaying = false;
@@ -96,7 +97,7 @@ class AudioVisualizerApp {
             volSlider.addEventListener('input', (e) => {
                 const vol = parseFloat(e.target.value);
                 this.analyzer.setVolume(vol);
-                if (this.midiHandler) this.midiHandler.setVolume(vol);
+                if (this.midiEngine) this.midiEngine.setVolume(vol);
             });
         }
 
@@ -295,8 +296,11 @@ class AudioVisualizerApp {
             console.log('🎹 App: MIDI format detected.');
             this.isMidiMode = true;
             await this.analyzer.init();
+            await this.midiEngine.init(this.analyzer.audioContext);
+            const midi = await this.midiEngine.loadMidi(file);
             await this.midiHandler.init(this.analyzer.audioContext);
-            const midi = await this.midiHandler.loadMidiFile(file);
+            await this.midiHandler.loadMidiFile(file); // Keep for analysis
+
             console.log('✅ App: MIDI processing complete.');
             if (this.elements.trackTime) {
                 this.elements.trackTime.innerText = `0:00 / ${this.formatTime(midi.duration)}`;
@@ -314,7 +318,7 @@ class AudioVisualizerApp {
 
     startPlayback() {
         if (this.isMidiMode) {
-            this.midiHandler.play();
+            this.midiEngine.play();
         } else {
             if (this.analyzer.play) this.analyzer.play();
         }
@@ -323,11 +327,16 @@ class AudioVisualizerApp {
         this.showToast('Oynatılıyor');
     }
 
-    togglePlayback() {
+    async togglePlayback() {
+        // Ensure AudioContext is resumed on user gesture
+        if (this.analyzer && this.analyzer.audioContext) {
+            await this.analyzer.resume();
+        }
+
         if (this.isPlaying) {
-            this.isMidiMode ? this.midiHandler.pause() : (this.analyzer.pause ? this.analyzer.pause() : null);
+            this.isMidiMode ? this.midiEngine.pause() : (this.analyzer.pause ? this.analyzer.pause() : null);
         } else {
-            this.isMidiMode ? this.midiHandler.play(this.midiHandler.pauseTime) : (this.analyzer.play ? this.analyzer.play() : null);
+            this.isMidiMode ? this.midiEngine.play(this.midiEngine.getCurrentTime()) : (this.analyzer.play ? this.analyzer.play() : null);
         }
         this.isPlaying = !this.isPlaying;
         this.updatePlayBtnState();
@@ -381,7 +390,7 @@ class AudioVisualizerApp {
             this.fpsUpdateTime = time;
         }
 
-        const currentTime = this.isMidiMode ? this.midiHandler.getCurrentTime() : 0;
+        const currentTime = this.isMidiMode ? this.midiEngine.getCurrentTime() : 0;
         const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
 
         // Central Background Clearing

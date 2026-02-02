@@ -90,12 +90,13 @@ export class Runner2 extends Visualizer {
         this.showMidiWarning = !analysis.isMidi;
 
         const handler = window.app && window.app.midiHandler;
-        if (!handler || !handler.midi) {
+        const engine = window.app && window.app.midiEngine;
+        if (!handler || !handler.midi || !engine) {
             this.fallingNotes = [];
             return;
         }
 
-        const currentTime = handler.getCurrentTime();
+        const currentTime = engine.getCurrentTime();
         this.fallingNotes = [];
 
         // Check if single instrument (exclude drum channel if necessary, but here we count tracks with notes)
