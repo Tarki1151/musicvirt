@@ -383,6 +383,7 @@ class AudioVisualizerApp {
 
         const currentTime = this.isMidiMode ? this.midiHandler.getCurrentTime() : 0;
         const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
+        analysis.currentTime = currentTime;
 
         // Central Background Clearing
         this.ctx.fillStyle = '#10111a';

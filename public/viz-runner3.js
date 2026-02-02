@@ -87,8 +87,8 @@ export class RoadRunner3 extends Visualizer {
         this.showMidiWarning = !analysis.isMidi;
         if (this.showMidiWarning) return;
 
+        const currentTime = analysis.currentTime || 0;
         const midiHandler = window.app.midiHandler;
-        const currentTime = midiHandler.getCurrentTime();
 
         // Sync Tracks with MIDI Channel Data
         if (analysis.channelData && analysis.channelData.length > 0) {
@@ -146,10 +146,7 @@ export class RoadRunner3 extends Visualizer {
         const playheadX = width * this.playheadX;
         const pixelsPerSecond = 200;
 
-        let currentTime = 0;
-        if (window.app && window.app.midiHandler && typeof window.app.midiHandler.getCurrentTime === 'function') {
-            currentTime = window.app.midiHandler.getCurrentTime();
-        }
+        const currentTime = analysis.currentTime || 0;
 
         // Background
         ctx.fillStyle = '#0a0a12';
