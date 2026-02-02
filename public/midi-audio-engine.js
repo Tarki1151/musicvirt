@@ -45,7 +45,7 @@ export class MidiEngine {
     async init(sharedContext, destinationNode) {
         if (this.isInitialized) return;
 
-        console.log('🚀 MidiEngine: Initializing Audio context... (Build: 20260202_1750)');
+        console.log('🚀 MidiEngine: Initializing Audio context... (Build: 20260202_1820)');
         if (sharedContext) {
             await Tone.setContext(sharedContext);
             this.context = sharedContext;
@@ -55,18 +55,19 @@ export class MidiEngine {
         }
 
         // Initialize master output
-        this.output = new Tone.Gain(this.masterVolume);
+        this.output = new Tone.Gain(this.masterVolume).toDestination();
 
         if (destinationNode) {
-            this.output.connect(destinationNode);
-            console.log('🔊 MidiEngine: Audio connected to External Analyzer.');
-        } else {
-            this.output.toDestination();
-            console.log('🔊 MidiEngine: Audio connected directly to Destination.');
+            try {
+                this.output.connect(destinationNode);
+                console.log('🔊 MidiEngine: Audio connected to visualizer analyser.');
+            } catch (e) {
+                console.warn('⚠️ MidiEngine: Failed to connect to visualizer analyser, but direct audio is active.');
+            }
         }
 
         this.isInitialized = true;
-        console.log('✅ MidiEngine: Audio Engine Ready.');
+        console.log(`✅ MidiEngine: Audio Engine Ready. Context State: ${Tone.context.state}`);
     }
 
     async loadMidi(file) {
@@ -171,7 +172,7 @@ export class MidiEngine {
     }
 
     async play(fromTime = 0) {
-        console.log(`🔊 MidiEngine: Attempting playback from ${fromTime.toFixed(2)}s. State: ${Tone.context.state}`);
+        console.log(`🔊 MidiEngine: Play command at ${fromTime.toFixed(2)}s. [Build 1820] State: ${Tone.context.state}`);
 
         // Satisfy browser autoplay policies
         await Tone.start();
@@ -179,17 +180,20 @@ export class MidiEngine {
             await this.context.resume();
         }
 
-        if (Tone.context.state !== 'running') {
-            console.warn('⚠️ MidiEngine: AudioContext is still suspended! Click play button again.');
-            // Only proceed if context is running or we'll get Tone.js warnings
-            if (fromTime === 0) return; // Don't try to auto-play if suspended
+        // Diagnostic Beep
+        try {
+            const osc = new Tone.Oscillator(440, "sine").connect(this.output);
+            osc.start().stop("+0.1");
+            console.log("🩺 Diagnostic Beep Triggered");
+        } catch (e) {
+            console.error("🩺 Diagnostic Beep failed:", e);
         }
 
         this.isPlaying = true;
         Tone.Transport.seconds = fromTime;
         Tone.Transport.start();
 
-        console.log(`▶️ MidiEngine: Playback started. Transport Time: ${Tone.Transport.seconds.toFixed(2)}`);
+        console.log(`▶️ MidiEngine: Transport Started. State: ${Tone.Transport.state}`);
     }
 
     pause() {

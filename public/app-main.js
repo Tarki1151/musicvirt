@@ -1,10 +1,10 @@
-import { AudioAnalyzer } from './audio-analyzer.js?v=20260202_1750';
-import { MidiHandler } from './midi-data-analyzer.js?v=20260202_1750';
-import { MidiEngine } from './midi-audio-engine.js?v=20260202_1750';
-import { Visualizers } from './visualizers.js?v=20260202_1750';
-import { VideoExporter } from './video-exporter.js?v=20260202_1750';
+import { AudioAnalyzer } from './audio-analyzer.js?v=20260202_1820';
+import { MidiHandler } from './midi-data-analyzer.js?v=20260202_1820';
+import { MidiEngine } from './midi-audio-engine.js?v=20260202_1820';
+import { Visualizers } from './visualizers.js?v=20260202_1820';
+import { VideoExporter } from './video-exporter.js?v=20260202_1820';
 
-const BUILD_ID = '20260202_1750';
+const BUILD_ID = '20260202_1820';
 
 /**
  * Main Application Module
