@@ -206,7 +206,7 @@ export class Runner2 extends Visualizer {
     }
 
     drawKey(ctx, key) {
-        const { x, y, width: w, height: h, active, isBlack, activeColor } = key;
+        const { x, y, width: w, height: h, active, isBlack, activeColor, note } = key;
         ctx.beginPath();
 
         if (active) {
@@ -230,6 +230,24 @@ export class Runner2 extends Visualizer {
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 1;
         ctx.stroke();
+
+        // Draw Note Labels
+        const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const noteName = names[note % 12];
+        const octave = Math.floor(note / 12) - 1;
+        const fullLabel = noteName + octave;
+
+        ctx.textAlign = 'center';
+        const fontSize = Math.max(6, Math.min(10, w * 0.4));
+        ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+
+        if (isBlack) {
+            ctx.fillStyle = active ? '#fff' : 'rgba(255,255,255,0.4)';
+            ctx.fillText(fullLabel, x + w / 2, y + h * 0.7);
+        } else {
+            ctx.fillStyle = active ? '#fff' : 'rgba(0,0,0,0.5)';
+            ctx.fillText(fullLabel, x + w / 2, y + h - 10);
+        }
     }
 
     getName() { return 'Piano Roll'; }
