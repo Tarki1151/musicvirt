@@ -1,14 +1,17 @@
-import { AudioAnalyzer } from './audio-analyzer.js?v=3';
-import { MidiHandler } from './midi-handler.js?v=3';
-import { MidiEngine } from './midi-engine.js?v=3';
-import { Visualizers } from './visualizers.js?v=3';
-import { VideoExporter } from './video-exporter.js?v=3';
+import { AudioAnalyzer } from './audio-analyzer.js?v=20260202_1730';
+import { MidiHandler } from './midi-handler.js?v=20260202_1730';
+import { MidiEngine } from './midi-engine.js?v=20260202_1730';
+import { Visualizers } from './visualizers.js?v=20260202_1730';
+import { VideoExporter } from './video-exporter.js?v=20260202_1730';
+
+const BUILD_ID = '20260202_1730';
 
 /**
  * Main Application Module
  */
 class AudioVisualizerApp {
     constructor() {
+        console.log(`🚀 App: Build ${BUILD_ID} starting...`);
         this.canvas = document.getElementById('visualizer');
         this.ctx = this.canvas.getContext('2d');
         this.analyzer = new AudioAnalyzer(2048);

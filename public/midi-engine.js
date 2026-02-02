@@ -65,7 +65,7 @@ export class MidiEngine {
 
         await this.reverb.ready;
         this.isInitialized = true;
-        console.log('✅ MidiEngine: Audio Engine Ready.');
+        console.log('✅ MidiEngine: Audio Engine Ready. (Build: 20260202_1730)');
     }
 
     async loadMidi(file) {

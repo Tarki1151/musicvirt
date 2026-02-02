@@ -17,9 +17,8 @@ export class MidiHandler {
     }
 
     async init(sharedContext) {
-        // No audio initialization needed for data-only handler
         this.isInitialized = true;
-        console.log('📊 MidiHandler: Data analyzer ready.');
+        console.log('📊 MidiHandler: Data analyzer ready. (Build: 20260202_1730)');
     }
 
     async loadMidiFile(file) {
