@@ -1,3 +1,4 @@
+import { AudioAnalyzer } from './audio-analyzer.js';
 import { MidiHandler } from './midi-handler.js';
 import { MidiEngine } from './midi-engine.js';
 import { Visualizers } from './visualizers.js';

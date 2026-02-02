@@ -37,12 +37,11 @@ export class MidiEngine {
             104: 'harp', 114: 'xylophone'
         };
 
-        // Permanent Effects Chain
-        this.output = new Tone.Gain(1.0);
-        this.limiter = new Tone.Limiter(-1).toDestination();
-        this.reverb = new Tone.Reverb({ decay: 2.5, wet: 0.25 }).connect(this.limiter);
-        this.eq = new Tone.EQ3({ low: 2, mid: 0, high: -2 }).connect(this.reverb);
-        this.output.connect(this.eq);
+        // Effects placeholder (to be initialized after context setup)
+        this.output = null;
+        this.limiter = null;
+        this.reverb = null;
+        this.eq = null;
     }
 
     async init(sharedContext) {
@@ -56,6 +55,13 @@ export class MidiEngine {
             await Tone.start();
             this.context = Tone.context;
         }
+
+        // Initialize effects chain within the established context
+        this.output = new Tone.Gain(1.0);
+        this.limiter = new Tone.Limiter(-1).toDestination();
+        this.reverb = new Tone.Reverb({ decay: 2.5, wet: 0.25 }).connect(this.limiter);
+        this.eq = new Tone.EQ3({ low: 2, mid: 0, high: -2 }).connect(this.reverb);
+        this.output.connect(this.eq);
 
         await this.reverb.ready;
         this.isInitialized = true;
