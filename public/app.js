@@ -61,17 +61,30 @@ class AudioVisualizerApp {
     }
 
     initVisualizers() {
+        console.log('🖼️ App: Initializing visualizers...');
         const V = Visualizers;
-        this.visualizers = [
-            new V.SpectrumAnalyzer(this.canvas),
-            new V.WaveformVisualizer(this.canvas),
-            new V.ParticleSystem(this.canvas),
-            new V.GeometricPatterns(this.canvas),
-            new V.Landscape3D(this.canvas),
-            new V.RoadRunner(this.canvas),
-            new V.Runner2(this.canvas),
-            new V.RoadRunner3(this.canvas)
-        ];
+        if (!V) {
+            console.error('❌ App: Visualizers registry not found!');
+            this.showToast('Başlatma Hatası: Visualizers missing');
+            return;
+        }
+
+        try {
+            this.visualizers = [
+                new V.SpectrumAnalyzer(this.canvas),
+                new V.WaveformVisualizer(this.canvas),
+                new V.ParticleSystem(this.canvas),
+                new V.GeometricPatterns(this.canvas),
+                new V.Landscape3D(this.canvas),
+                new V.RoadRunner(this.canvas),
+                new V.Runner2(this.canvas),
+                new V.RoadRunner3(this.canvas)
+            ];
+            console.log(`✅ App: ${this.visualizers.length} visualizers ready.`);
+        } catch (e) {
+            console.error('❌ App: Failed to create visualizers:', e);
+            this.showToast('Görselleştiriciler hazırlanamadı');
+        }
     }
 
     setupEventListeners() {
@@ -390,8 +403,18 @@ class AudioVisualizerApp {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.visualizers[this.currentModeIndex]) {
-            this.visualizers[this.currentModeIndex].update(analysis, dt);
-            this.visualizers[this.currentModeIndex].render();
+            try {
+                this.visualizers[this.currentModeIndex].update(analysis, dt);
+                this.visualizers[this.currentModeIndex].render();
+            } catch (e) {
+                if (this.frameCount % 60 === 0) console.error(`❌ App: Visualizer Error [${this.currentModeIndex}]:`, e);
+            }
+        }
+
+        // Test Draw (confirm canvas is working)
+        if (this.isPlaying) {
+            this.ctx.fillStyle = analysis.isBeat ? '#fff' : 'rgba(255,255,255,0.2)';
+            this.ctx.fillRect(10, 10, 2, 2);
         }
 
         requestAnimationFrame((t) => this.animate(t));

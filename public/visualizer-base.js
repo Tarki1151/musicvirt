@@ -20,6 +20,7 @@ export class Visualizer {
     }
 
     update(analysis, dt) {
+        this.analysis = analysis;
         this.time += dt * this.speedMultiplier;
     }
 
