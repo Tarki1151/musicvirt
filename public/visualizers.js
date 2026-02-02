@@ -5,6 +5,7 @@ import { GeometricPatterns } from './viz-geometric.js';
 import { Landscape } from './viz-landscape.js';
 import { RoadRunner } from './viz-roadrunner.js';
 import { Runner2 } from './viz-runner2.js';
+import { RoadRunner3 } from './viz-runner3.js';
 
 export const Visualizers = {
     SpectrumAnalyzer,
@@ -13,5 +14,6 @@ export const Visualizers = {
     GeometricPatterns,
     Landscape3D: Landscape,
     RoadRunner,
-    Runner2
+    Runner2,
+    RoadRunner3
 };

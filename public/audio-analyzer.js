@@ -27,13 +27,17 @@ export class AudioAnalyzer {
     }
 
     async init() {
+        console.log('📊 Analyzer: Initializing...');
         if (this.audioContext) {
+            console.log('📊 Analyzer: AudioContext already exists. State:', this.audioContext.state);
             if (this.audioContext.state === 'suspended') {
+                console.log('📊 Analyzer: Resuming suspended context...');
                 await this.audioContext.resume();
             }
             return;
         }
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('📊 Analyzer: New AudioContext created. State:', this.audioContext.state);
         this.analyser = this.audioContext.createAnalyser();
         this.analyser.fftSize = this.fftSize;
         this.analyser.smoothingTimeConstant = 0.85;
@@ -47,6 +51,39 @@ export class AudioAnalyzer {
         this.frequencyData = new Uint8Array(bufferLength);
         this.timeData = new Uint8Array(bufferLength);
         console.log('Audio Analyzer initialized');
+    }
+
+    async loadAudio(file) {
+        console.log('📂 Analyzer: Loading audio file:', file.name);
+        if (!this.audioContext) await this.init();
+        const url = URL.createObjectURL(file);
+        const audio = new Audio();
+        audio.src = url;
+        audio.crossOrigin = "anonymous";
+        this.connectedAudio = audio; // Track for play/pause
+        console.log('🔗 Analyzer: Connecting audio element to analyzer...');
+        this.connectAudioElement(audio);
+        return audio;
+    }
+
+    async play() {
+        if (!this.connectedAudio) {
+            console.warn('⚠️ Analyzer: No audio element connected to play.');
+            return;
+        }
+        console.log('▶️ Analyzer: Playback starting...');
+        if (this.audioContext.state === 'suspended') {
+            console.log('📊 Analyzer: Resuming suspended context before play...');
+            await this.audioContext.resume();
+        }
+        this.connectedAudio.play();
+    }
+
+    pause() {
+        if (this.connectedAudio) {
+            console.log('⏸️ Analyzer: Playback paused.');
+            this.connectedAudio.pause();
+        }
     }
 
     connectAudioElement(audioElement) {

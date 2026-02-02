@@ -49,7 +49,8 @@ class AudioVisualizerApp {
 
             this.setupEventListeners();
             this.setupSettingsListeners();
-            await this.midiHandler.init(this.analyzer.audioContext);
+
+            // Audio will be initialized on first user gesture
             requestAnimationFrame((t) => this.animate(t));
             console.log('App Initialized');
         } catch (e) {
@@ -67,7 +68,8 @@ class AudioVisualizerApp {
             new V.GeometricPatterns(this.canvas),
             new V.Landscape3D(this.canvas),
             new V.RoadRunner(this.canvas),
-            new V.Runner2(this.canvas)
+            new V.Runner2(this.canvas),
+            new V.RoadRunner3(this.canvas)
         ];
     }
 
@@ -233,6 +235,7 @@ class AudioVisualizerApp {
     }
 
     async processFile(file) {
+        console.log('🚀 App: Processing file:', file.name);
         this.showToast('Yükleniyor...');
 
         // Hide drop zone, show controls
@@ -240,15 +243,25 @@ class AudioVisualizerApp {
         if (this.elements.controls) this.elements.controls.style.display = 'flex';
 
         if (file.name.toLowerCase().endsWith('.mid') || file.name.toLowerCase().endsWith('.midi')) {
+            console.log('🎹 App: MIDI format detected.');
             this.isMidiMode = true;
+
+            // Initialize Audio Systems on first file load (gesture)
+            await this.analyzer.init();
+            await this.midiHandler.init(this.analyzer.audioContext);
+
             const midi = await this.midiHandler.loadMidiFile(file);
+            console.log('✅ App: MIDI processing complete.');
             if (this.elements.trackTime) {
                 this.elements.trackTime.innerText = `0:00 / ${this.formatTime(midi.duration)}`;
             }
             this.startPlayback();
         } else {
+            console.log('🎵 App: Standard audio format detected.');
             this.isMidiMode = false;
+            await this.analyzer.init();
             await this.analyzer.loadAudio(file);
+            console.log('✅ App: Audio loading complete.');
             this.startPlayback();
         }
     }
@@ -257,7 +270,8 @@ class AudioVisualizerApp {
         if (this.isMidiMode) {
             this.midiHandler.play();
         } else {
-            this.analyzer.play();
+            // Handle standard audio via analyzer
+            if (this.analyzer.play) this.analyzer.play();
         }
         this.isPlaying = true;
         this.updatePlayBtnState();
@@ -266,9 +280,9 @@ class AudioVisualizerApp {
 
     togglePlayback() {
         if (this.isPlaying) {
-            this.isMidiMode ? this.midiHandler.pause() : this.analyzer.pause();
+            this.isMidiMode ? this.midiHandler.pause() : (this.analyzer.pause ? this.analyzer.pause() : null);
         } else {
-            this.isMidiMode ? this.midiHandler.play(this.midiHandler.pauseTime) : this.analyzer.play();
+            this.isMidiMode ? this.midiHandler.play(this.midiHandler.pauseTime) : (this.analyzer.play ? this.analyzer.play() : null);
         }
         this.isPlaying = !this.isPlaying;
         this.updatePlayBtnState();

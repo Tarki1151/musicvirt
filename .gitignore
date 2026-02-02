@@ -19,6 +19,7 @@ Thumbs.db
 
 # Soundfonts (Auto-downloaded by the app)
 public/soundfonts/
+public/samples/
 
 # Local Media Files
 public/*.mid
