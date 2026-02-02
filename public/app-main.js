@@ -300,7 +300,7 @@ class AudioVisualizerApp {
             console.log('🎹 App: MIDI format detected.');
             this.isMidiMode = true;
             await this.analyzer.init();
-            await this.midiEngine.init(this.analyzer.audioContext);
+            await this.midiEngine.init(this.analyzer.audioContext, this.analyzer.analyser);
             const midi = await this.midiEngine.loadMidi(file);
             await this.midiHandler.init(this.analyzer.audioContext);
             await this.midiHandler.loadMidiFile(file); // Keep for analysis

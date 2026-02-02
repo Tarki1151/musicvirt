@@ -9,7 +9,8 @@ import { Midi } from '@tonejs/midi';
 export class MidiEngine {
     constructor() {
         this.midi = null;
-        this.samplers = {};
+        this.samplers = {}; // Cached by library name
+        this.trackSamplers = {}; // Map track index to sampler
         this.parts = [];
         this.isPlaying = false;
         this.masterVolume = 0.8;
@@ -41,7 +42,7 @@ export class MidiEngine {
         this.output = null;
     }
 
-    async init(sharedContext) {
+    async init(sharedContext, destinationNode) {
         if (this.isInitialized) return;
 
         console.log('🚀 MidiEngine: Initializing Audio context... (Build: 20260202_1750)');
@@ -53,9 +54,16 @@ export class MidiEngine {
             this.context = Tone.context;
         }
 
-        // Initialize master output directly to destination for maximum reliability
-        this.output = new Tone.Gain(this.masterVolume).toDestination();
-        console.log('🔊 MidiEngine: Master output initialized at volume:', this.masterVolume);
+        // Initialize master output
+        this.output = new Tone.Gain(this.masterVolume);
+
+        if (destinationNode) {
+            this.output.connect(destinationNode);
+            console.log('🔊 MidiEngine: Audio connected to External Analyzer.');
+        } else {
+            this.output.toDestination();
+            console.log('🔊 MidiEngine: Audio connected directly to Destination.');
+        }
 
         this.isInitialized = true;
         console.log('✅ MidiEngine: Audio Engine Ready.');
@@ -81,21 +89,24 @@ export class MidiEngine {
     }
 
     async loadInstruments() {
+        console.log('📦 MidiEngine: Loading instrument samples...');
         const response = await fetch('./samples/manifest.json');
         const manifest = await response.json();
 
-        const promises = [];
-        this.midi.tracks.forEach((track, index) => {
-            if (track.notes.length === 0 || track.channel === 9) return;
-
-            const prg = track.instrument ? track.instrument.number : 0;
-            let lib = this.getLibraryName(prg, manifest);
-
-            // Skip if no samples available for this lib
-            if (!manifest[lib] || manifest[lib].length === 0) {
-                console.warn(`⚠️ MidiEngine: Library [${lib}] is empty. Falling back to piano.`);
-                lib = 'piano';
+        const libsToLoad = new Set();
+        this.midi.tracks.forEach(track => {
+            if (track.notes.length > 0 && track.channel !== 9) {
+                const prg = track.instrument ? track.instrument.number : 0;
+                libsToLoad.add(this.getLibraryName(prg, manifest));
             }
+        });
+
+        console.log(`📦 MidiEngine: Distinct libraries to load: ${Array.from(libsToLoad).join(', ')}`);
+
+        // Load distinct samplers
+        const loadPromises = [];
+        for (const lib of libsToLoad) {
+            if (this.samplers[lib]) continue;
 
             const samples = {};
             manifest[lib].forEach(f => {
@@ -106,18 +117,31 @@ export class MidiEngine {
             const sampler = new Tone.Sampler({
                 urls: samples,
                 baseUrl: `./samples/${lib}/`,
-                onload: () => console.log(`🎹 MidiEngine: [${lib}] loaded for Track ${index}. Total Samplers: ${Object.keys(this.samplers).length}`),
-                onerror: (e) => console.error(`❌ MidiEngine: [${lib}] failed:`, e)
-            }).connect(this.output); // Connect directly to output for now
+                onload: () => console.log(`🎹 MidiEngine: Library [${lib}] fully loaded.`),
+                onerror: (e) => console.error(`❌ MidiEngine: Library [${lib}] failed to load:`, e)
+            }).connect(this.output);
 
-            this.samplers[index] = sampler;
-            promises.push(new Promise(r => {
+            this.samplers[lib] = sampler;
+            loadPromises.push(new Promise(r => {
                 const check = () => sampler.loaded ? r() : setTimeout(check, 100);
-                setTimeout(() => r(), 5000); // 5s timeout
+                setTimeout(() => {
+                    if (!sampler.loaded) console.warn(`⚠️ MidiEngine: Library [${lib}] timeout after 10s`);
+                    r();
+                }, 10000);
                 check();
             }));
+        }
+
+        await Promise.all(loadPromises);
+
+        // Map tracks to their cached samplers
+        this.midi.tracks.forEach((track, index) => {
+            const prg = track.instrument ? track.instrument.number : 0;
+            const lib = this.getLibraryName(prg, manifest);
+            this.trackSamplers[index] = this.samplers[lib];
         });
-        await Promise.all(promises);
+
+        console.log('✅ MidiEngine: All instruments ready.');
     }
 
     getLibraryName(prg, manifest) {
@@ -127,12 +151,15 @@ export class MidiEngine {
 
     scheduleNotes() {
         console.log(`📅 MidiEngine: Scheduling notes for ${this.midi.tracks.filter(t => t.notes.length > 0).length} tracks...`);
+        this.parts.forEach(p => p.dispose());
+        this.parts = [];
+
         this.midi.tracks.forEach((track, index) => {
-            if (track.notes.length === 0 || !this.samplers[index]) return;
+            const sampler = this.trackSamplers[index];
+            if (track.notes.length === 0 || !sampler) return;
 
             const part = new Tone.Part((time, note) => {
-                const sampler = this.samplers[index];
-                if (sampler && sampler.loaded) {
+                if (sampler.loaded) {
                     sampler.triggerAttackRelease(note.name, note.duration, time, note.velocity);
                 }
             }, track.notes.map(n => ({ time: n.time, name: n.name, duration: n.duration, velocity: n.velocity })));
