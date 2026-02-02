@@ -55,6 +55,7 @@ class AudioVisualizerApp {
             this.setupEventListeners();
             this.setupSettingsListeners();
             this.setupExportListeners();
+            this.setupWelcomeListener(); // Captures vital user gesture
 
             // Audio will be initialized on first user gesture
             requestAnimationFrame((t) => this.animate(t));
@@ -278,6 +279,27 @@ class AudioVisualizerApp {
         }
     }
 
+    setupWelcomeListener() {
+        const overlay = document.getElementById('welcomeOverlay');
+        const startBtn = document.getElementById('startAppBtn');
+
+        if (startBtn && overlay) {
+            startBtn.addEventListener('click', async () => {
+                console.log('🔘 App: Start button clicked. Initializing Audio Context...');
+
+                // Definitive capture of user gesture for Tone.js and Web Audio
+                await Tone.start();
+                await this.analyzer.init();
+
+                overlay.classList.add('fade-out');
+                setTimeout(() => overlay.style.display = 'none', 800);
+
+                console.log('✅ App: Audio Context Ready via Welcome Screen.');
+                this.showToast('Ses Motoru Aktif');
+            });
+        }
+    }
+
     async handleFileSelect(event) {
         const file = event.target.files[0];
         if (file) this.processFile(file);
@@ -299,8 +321,11 @@ class AudioVisualizerApp {
         if (file.name.toLowerCase().endsWith('.mid') || file.name.toLowerCase().endsWith('.midi')) {
             console.log('🎹 App: MIDI format detected.');
             this.isMidiMode = true;
-            await this.analyzer.init();
+
+            // Ensure audio units are initialized
+            if (!this.analyzer.audioContext) await this.analyzer.init();
             await this.midiEngine.init(this.analyzer.audioContext, this.analyzer.analyser);
+
             const midi = await this.midiEngine.loadMidi(file);
             await this.midiHandler.init(this.analyzer.audioContext);
             await this.midiHandler.loadMidiFile(file); // Keep for analysis
