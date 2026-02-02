@@ -147,7 +147,7 @@ export class RoadRunner3 extends Visualizer {
         const width = this.canvas.width;
         const playheadX = width * this.playheadX;
         const pixelsPerSecond = 200;
-        const currentTime = window.app.midiHandler ? window.app.midiHandler.getCurrentTime() : 0;
+        const currentTime = window.app.midiEngine ? window.app.midiEngine.getCurrentTime() : 0;
 
         // Background
         ctx.fillStyle = '#0a0a12';

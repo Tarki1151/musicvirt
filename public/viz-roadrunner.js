@@ -246,7 +246,8 @@ export class RoadRunner extends Visualizer {
                 let started = false;
 
                 track.nodes.forEach(node => {
-                    const relativeTime = node.time - window.app.midiHandler.getCurrentTime();
+                    const currentTime = window.app.midiEngine ? window.app.midiEngine.getCurrentTime() : 0;
+                    const relativeTime = node.time - currentTime;
                     const x = playheadX + (relativeTime * pixelsPerSecond);
 
                     if (x > -100 && x < width + 100) {
