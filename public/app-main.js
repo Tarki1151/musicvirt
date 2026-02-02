@@ -1,11 +1,11 @@
 import * as Tone from 'tone';
-import { AudioAnalyzer } from './audio-analyzer.js?v=20260202_1830';
-import { MidiHandler } from './midi-data-analyzer.js?v=20260202_1830';
-import { MidiEngine } from './midi-audio-engine.js?v=20260202_1830';
-import { Visualizers } from './visualizers.js?v=20260202_1830';
-import { VideoExporter } from './video-exporter.js?v=20260202_1830';
+import { AudioAnalyzer } from './audio-analyzer.js?v=20260202_1840';
+import { MidiHandler } from './midi-data-analyzer.js?v=20260202_1840';
+import { MidiEngine } from './midi-audio-engine.js?v=20260202_1840';
+import { Visualizers } from './visualizers.js?v=20260202_1840';
+import { VideoExporter } from './video-exporter.js?v=20260202_1840';
 
-const BUILD_ID = '20260202_1830';
+const BUILD_ID = '20260202_1840';
 
 /**
  * Main Application Module

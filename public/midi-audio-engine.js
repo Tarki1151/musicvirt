@@ -45,7 +45,7 @@ export class MidiEngine {
     async init(sharedContext, destinationNode) {
         if (this.isInitialized) return;
 
-        console.log('🚀 MidiEngine: Initializing Audio context... (Build: 20260202_1830)');
+        console.log('🚀 MidiEngine: Initializing Audio context... (Build: 20260202_1840)');
         if (sharedContext) {
             await Tone.setContext(sharedContext);
             this.context = sharedContext;
