@@ -50,20 +50,14 @@ export class VideoExporter {
         // 2. Prepare Streams
         const canvasStream = this.canvas.captureStream(60);
 
-        // Capture Audio
-        const audioContext = this.app.analyzer.audioContext;
-        if (!audioContext) {
-            console.error('❌ Export Error: AudioContext not found.');
-            this.isRecording = false;
-            return;
-        }
-
         // Resume context to ensure audio is flowing
         if (audioContext.state === 'suspended') {
             await audioContext.resume();
         }
 
-        const dest = audioContext.createMediaStreamDestination();
+        // IMPORTANT: Create Destination using Tone.context to allow connection
+        const dest = Tone.context.createMediaStreamDestination();
+
 
         // Connect Tone.js Destination (MIDI)
         try {
