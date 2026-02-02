@@ -8,6 +8,7 @@ import { Visualizer } from './visualizer-base.js';
 export class Runner2 extends Visualizer {
     constructor(canvas) {
         super(canvas);
+        console.log('🎼 Runner2: Loaded Version 20260202_2015');
         this.name = "Piano Roll";
         this.keys = [];
         this.fallingNotes = [];
@@ -96,7 +97,7 @@ export class Runner2 extends Visualizer {
             return;
         }
 
-        const currentTime = (handler && typeof handler.getCurrentTime === 'function') ? handler.getCurrentTime() : 0;
+        const currentTime = (this.analysis && this.analysis.currentTime) || 0;
         this.fallingNotes = [];
 
         // Reset Keys

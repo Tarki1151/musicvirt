@@ -7,6 +7,7 @@ import { Visualizer } from './visualizer-base.js';
 export class RoadRunner3 extends Visualizer {
     constructor(canvas) {
         super(canvas);
+        console.log('🎼 Runner3: Loaded Version 20260202_2015');
 
         this.trackColors = [
             [255, 100, 100],  // Red
@@ -84,15 +85,15 @@ export class RoadRunner3 extends Visualizer {
         // Essential: Store analysis and update internal time via base class
         super.update(analysis, dt);
 
-        this.isMidiMode = analysis.isMidi;
-        this.showMidiWarning = !analysis.isMidi;
+        this.isMidiMode = !!analysis.isMidi;
+        this.showMidiWarning = !this.isMidiMode;
         if (this.showMidiWarning) return;
 
         // Use the CENTRAL timing source (prevents static notes)
-        const currentTime = analysis.currentTime || 0;
+        const currentTime = (this.analysis && typeof this.analysis.currentTime === 'number') ? this.analysis.currentTime : 0;
         const midiHandler = window.app && window.app.midiHandler;
 
-        if (!midiHandler) return;
+        if (!midiHandler || !midiHandler.midi) return;
 
         // Sync Tracks with MIDI Channel Data
         if (analysis.channelData && analysis.channelData.length > 0) {

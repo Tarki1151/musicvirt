@@ -8,6 +8,7 @@ import { Visualizer } from './visualizer-base.js';
 export class RoadRunner extends Visualizer {
     constructor(canvas) {
         super(canvas);
+        console.log('🎼 RoadRunner: Loaded Version 20260202_2015');
 
         // Extended color palette for up to 16 channels
         this.trackColors = [
@@ -144,7 +145,7 @@ export class RoadRunner extends Visualizer {
         }
 
         const energies = analysis.channelData ? analysis.channelData.map(c => c.energy || 0) : [];
-        const currentTime = (window.app.midiHandler && typeof window.app.midiHandler.getCurrentTime === 'function') ? window.app.midiHandler.getCurrentTime() : 0;
+        const currentTime = (this.analysis && this.analysis.currentTime) || 0;
 
         // Update tracks
         this.tracks.forEach((track, i) => {
