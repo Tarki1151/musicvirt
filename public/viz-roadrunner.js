@@ -127,12 +127,13 @@ export class RoadRunner extends Visualizer {
                 const chId = analysis.channelData[i].channelId;
                 this.tracks[i].channelId = chId;
 
-                // Get Instrument Name from Engine
-                if (window.app.midiEngine && window.app.midiHandler.midi) {
+                // Get Instrument Name from Handler
+                if (window.app.midiHandler && window.app.midiHandler.midi) {
                     const trackMeta = window.app.midiHandler.midi.tracks.find(t => t.channel === chId);
                     if (trackMeta && trackMeta.instrument) {
                         const prgNum = trackMeta.instrument.number;
-                        const cleanName = window.app.midiEngine.GM_MAP[prgNum] || trackMeta.instrument.name;
+                        const cleanName = window.app.midiHandler.constructor.GM_MAP[prgNum] || trackMeta.instrument.name;
+                        // Format: "Violin", "Acoustic Grand Piano"
                         this.tracks[i].name = cleanName.replace(/_/g, ' ').toUpperCase();
                     } else {
                         this.tracks[i].name = `CH${chId + 1}`;
@@ -142,7 +143,7 @@ export class RoadRunner extends Visualizer {
         }
 
         const energies = analysis.channelData ? analysis.channelData.map(c => c.energy || 0) : [];
-        const currentTime = window.app.midiEngine ? window.app.midiEngine.getCurrentTime() : 0;
+        const currentTime = window.app.midiHandler ? window.app.midiHandler.getCurrentTime() : 0;
 
         // Update tracks
         this.tracks.forEach((track, i) => {
@@ -194,8 +195,8 @@ export class RoadRunner extends Visualizer {
         const pixelsPerSecond = (width * 0.5) / timeWindow;
 
         // Draw Rhythmic Grid
-        if (this.transport && window.app.midiEngine) {
-            this.drawGrid(playheadX, pixelsPerSecond, window.app.midiEngine.getCurrentTime());
+        if (this.transport && window.app.midiHandler) {
+            this.drawGrid(playheadX, pixelsPerSecond, window.app.midiHandler.getCurrentTime());
         }
 
         // Playhead Line
@@ -246,8 +247,7 @@ export class RoadRunner extends Visualizer {
                 let started = false;
 
                 track.nodes.forEach(node => {
-                    const currentTime = window.app.midiEngine ? window.app.midiEngine.getCurrentTime() : 0;
-                    const relativeTime = node.time - currentTime;
+                    const relativeTime = node.time - window.app.midiHandler.getCurrentTime();
                     const x = playheadX + (relativeTime * pixelsPerSecond);
 
                     if (x > -100 && x < width + 100) {
@@ -266,8 +266,7 @@ export class RoadRunner extends Visualizer {
 
             // Draw Nodes
             track.nodes.forEach(node => {
-                const currentTime = window.app.midiEngine ? window.app.midiEngine.getCurrentTime() : 0;
-                const relativeTime = node.time - currentTime;
+                const relativeTime = node.time - window.app.midiHandler.getCurrentTime();
                 const x = playheadX + (relativeTime * pixelsPerSecond);
 
                 // Culling: Ensure nodes reach the very left edge (x=0)

@@ -47,10 +47,10 @@ export class VideoExporter {
         // Force visualizers to adapt to new size
         this.app.visualizers.forEach(v => v.resize(targetW, targetH));
 
-        // 2. Prepare Streams: Video + Audio
+        // 2. Prepare Streams
         const canvasStream = this.canvas.captureStream(60);
 
-        // Capture Audio
+        // Capture Audio - Use the main app's context to avoid "Overload resolution failed" (cross-context)
         const audioContext = this.app.analyzer.audioContext;
         if (!audioContext) {
             console.error('❌ Export Error: AudioContext not found.');
@@ -58,39 +58,28 @@ export class VideoExporter {
             return;
         }
 
-        // Create a destination for the recorder
         const dest = audioContext.createMediaStreamDestination();
 
-        // Use a recording gain node to mix all sources
-        const recordingMixer = audioContext.createGain();
-        recordingMixer.gain.value = 1.0;
-        recordingMixer.connect(dest);
-
-        // Mix MIDI (Tone.js)
+        // Connect Tone.js (MIDI) - Ensure we use the raw destination connection
         try {
-            // Tone.Destination is the master output
-            Tone.getDestination().connect(recordingMixer);
-            console.log('🔗 Export: Tone.js connected to recording mixer');
+            Tone.Destination.connect(dest);
         } catch (e) {
-            console.warn('⚠️ Export: Tone.js connection failed:', e);
+            console.warn('⚠️ Export: Could not connect Tone.js to recorder:', e);
         }
 
-        // Mix Standard Audio (Analyzer)
+        // Connect Standard Audio (Analyzer) if active
         if (this.app.analyzer && this.app.analyzer.gainNode) {
             try {
-                this.app.analyzer.gainNode.connect(recordingMixer);
-                console.log('🔗 Export: Audio Analyzer connected to recording mixer');
+                this.app.analyzer.gainNode.connect(dest);
             } catch (e) {
-                console.warn('⚠️ Export: Analyzer connection failed:', e);
+                console.warn('⚠️ Export: Could not connect Analyzer to recorder:', e);
             }
         }
 
         const audioTrack = dest.stream.getAudioTracks()[0];
+
         if (audioTrack) {
-            console.log('🔊 Export: Audio track found and added to stream');
             canvasStream.addTrack(audioTrack);
-        } else {
-            console.warn('⚠️ Export: No audio track found in destination stream');
         }
 
         this.stream = canvasStream;
@@ -115,8 +104,7 @@ export class VideoExporter {
 
         this.recorder = new MediaRecorder(canvasStream, {
             mimeType: selectedMime,
-            videoBitsPerSecond: options.quality === '2k' ? 12000000 : 8000000,
-            audioBitsPerSecond: 128000 // High quality audio
+            videoBitsPerSecond: options.quality === '2k' ? 12000000 : 8000000 // 8-12 Mbps
         });
 
         this.recorder.ondataavailable = (e) => {

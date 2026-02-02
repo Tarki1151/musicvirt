@@ -90,18 +90,13 @@ export class Runner2 extends Visualizer {
         this.showMidiWarning = !analysis.isMidi;
 
         const handler = window.app && window.app.midiHandler;
-        const engine = window.app && window.app.midiEngine;
-        if (!handler || !handler.midi || !engine) {
+        if (!handler || !handler.midi) {
             this.fallingNotes = [];
             return;
         }
 
-        const currentTime = engine.getCurrentTime();
+        const currentTime = handler.getCurrentTime();
         this.fallingNotes = [];
-
-        // Check if single instrument (exclude drum channel if necessary, but here we count tracks with notes)
-        const channelIds = handler.getChannelIds ? handler.getChannelIds() : [];
-        const isSingleInstrument = channelIds.length <= 1;
 
         // Reset Keys
         this.keys.forEach(k => k.active = false);
@@ -109,14 +104,12 @@ export class Runner2 extends Visualizer {
         // Process notes
         if (handler.notes) {
             handler.notes.forEach(note => {
-                const noteColor = isSingleInstrument ? this.getNoteColor(note.note) : this.getChannelColor(note.channel);
-
                 // Active state
                 if (currentTime >= note.startTime && currentTime < note.endTime) {
                     const key = this.keys.find(k => k.note === note.note);
                     if (key) {
                         key.active = true;
-                        key.activeColor = noteColor;
+                        key.activeColor = this.getChannelColor(note.channel);
                     }
                 }
 
@@ -134,7 +127,7 @@ export class Runner2 extends Visualizer {
                             y: noteBottomY - noteHeight,
                             w: key.width,
                             h: noteHeight,
-                            color: noteColor,
+                            color: this.getChannelColor(note.channel),
                             isBlack: key.isBlack,
                             active: currentTime >= note.startTime
                         });
@@ -147,12 +140,6 @@ export class Runner2 extends Visualizer {
     getChannelColor(channel) {
         const hue = (channel * 137.5) % 360;
         return `hsl(${hue}, 80%, 60%)`;
-    }
-
-    getNoteColor(note) {
-        // Chromatic rainbow: Each of the 12 notes gets a unique hue
-        const hue = (note * 30) % 360; // 360 / 12 = 30 degrees per semi-tone
-        return `hsl(${hue}, 85%, 65%)`;
     }
 
     render() {
@@ -217,7 +204,7 @@ export class Runner2 extends Visualizer {
     }
 
     drawKey(ctx, key) {
-        const { x, y, width: w, height: h, active, isBlack, activeColor, note } = key;
+        const { x, y, width: w, height: h, active, isBlack, activeColor } = key;
         ctx.beginPath();
 
         if (active) {
@@ -241,19 +228,6 @@ export class Runner2 extends Visualizer {
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 1;
         ctx.stroke();
-
-        // Draw Note Name
-        const names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-        const noteName = names[note % 12];
-        const octave = Math.floor(note / 12) - 1;
-        const fullLabel = noteName + octave;
-
-        ctx.fillStyle = isBlack ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
-        if (active) ctx.fillStyle = '#fff';
-
-        ctx.font = `bold ${Math.min(10, w * 0.4)}px Inter`;
-        ctx.textAlign = 'center';
-        ctx.fillText(fullLabel, x + w / 2, y + h - 10);
     }
 
     getName() { return 'Piano Roll'; }

@@ -1,22 +1,17 @@
-import { AudioAnalyzer } from './audio-analyzer.js?v=20260202_1730';
-import { MidiHandler } from './midi-handler.js?v=20260202_1730';
-import { MidiEngine } from './midi-engine.js?v=20260202_1730';
-import { Visualizers } from './visualizers.js?v=20260202_1730';
-import { VideoExporter } from './video-exporter.js?v=20260202_1730';
-
-const BUILD_ID = '20260202_1730';
+import { AudioAnalyzer } from './audio-analyzer.js';
+import { MidiHandler } from './midi-handler.js';
+import { Visualizers } from './visualizers.js';
+import { VideoExporter } from './video-exporter.js';
 
 /**
  * Main Application Module
  */
 class AudioVisualizerApp {
     constructor() {
-        console.log(`🚀 App: Build ${BUILD_ID} starting...`);
         this.canvas = document.getElementById('visualizer');
         this.ctx = this.canvas.getContext('2d');
         this.analyzer = new AudioAnalyzer(2048);
         this.midiHandler = new MidiHandler();
-        this.midiEngine = new MidiEngine();
         this.visualizers = [];
         this.currentModeIndex = 0;
         this.isPlaying = false;
@@ -101,7 +96,7 @@ class AudioVisualizerApp {
             volSlider.addEventListener('input', (e) => {
                 const vol = parseFloat(e.target.value);
                 this.analyzer.setVolume(vol);
-                if (this.midiEngine) this.midiEngine.setVolume(vol);
+                if (this.midiHandler) this.midiHandler.setVolume(vol);
             });
         }
 
@@ -300,11 +295,8 @@ class AudioVisualizerApp {
             console.log('🎹 App: MIDI format detected.');
             this.isMidiMode = true;
             await this.analyzer.init();
-            await this.midiEngine.init(this.analyzer.audioContext);
-            const midi = await this.midiEngine.loadMidi(file);
             await this.midiHandler.init(this.analyzer.audioContext);
-            await this.midiHandler.loadMidiFile(file); // Keep for analysis
-
+            const midi = await this.midiHandler.loadMidiFile(file);
             console.log('✅ App: MIDI processing complete.');
             if (this.elements.trackTime) {
                 this.elements.trackTime.innerText = `0:00 / ${this.formatTime(midi.duration)}`;
@@ -322,7 +314,7 @@ class AudioVisualizerApp {
 
     startPlayback() {
         if (this.isMidiMode) {
-            this.midiEngine.play();
+            this.midiHandler.play();
         } else {
             if (this.analyzer.play) this.analyzer.play();
         }
@@ -331,16 +323,11 @@ class AudioVisualizerApp {
         this.showToast('Oynatılıyor');
     }
 
-    async togglePlayback() {
-        // Ensure AudioContext is resumed on user gesture
-        if (this.analyzer && this.analyzer.audioContext) {
-            await this.analyzer.resume();
-        }
-
+    togglePlayback() {
         if (this.isPlaying) {
-            this.isMidiMode ? this.midiEngine.pause() : (this.analyzer.pause ? this.analyzer.pause() : null);
+            this.isMidiMode ? this.midiHandler.pause() : (this.analyzer.pause ? this.analyzer.pause() : null);
         } else {
-            this.isMidiMode ? this.midiEngine.play(this.midiEngine.getCurrentTime()) : (this.analyzer.play ? this.analyzer.play() : null);
+            this.isMidiMode ? this.midiHandler.play(this.midiHandler.pauseTime) : (this.analyzer.play ? this.analyzer.play() : null);
         }
         this.isPlaying = !this.isPlaying;
         this.updatePlayBtnState();
@@ -394,7 +381,7 @@ class AudioVisualizerApp {
             this.fpsUpdateTime = time;
         }
 
-        const currentTime = this.isMidiMode ? this.midiEngine.getCurrentTime() : 0;
+        const currentTime = this.isMidiMode ? this.midiHandler.getCurrentTime() : 0;
         const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
 
         // Central Background Clearing
@@ -402,13 +389,8 @@ class AudioVisualizerApp {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.visualizers[this.currentModeIndex]) {
-            try {
-                this.visualizers[this.currentModeIndex].update(analysis, dt);
-                this.visualizers[this.currentModeIndex].render();
-            } catch (e) {
-                console.error(`❌ App: Visualizer Error [${this.visualizers[this.currentModeIndex].getName()}]:`, e);
-                this.showToast('Görselleştirme Hatası');
-            }
+            this.visualizers[this.currentModeIndex].update(analysis, dt);
+            this.visualizers[this.currentModeIndex].render();
         }
 
         requestAnimationFrame((t) => this.animate(t));

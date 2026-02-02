@@ -88,8 +88,7 @@ export class RoadRunner3 extends Visualizer {
         if (this.showMidiWarning) return;
 
         const midiHandler = window.app.midiHandler;
-        const midiEngine = window.app.midiEngine;
-        const currentTime = midiEngine.getCurrentTime();
+        const currentTime = midiHandler.getCurrentTime();
 
         // Sync Tracks with MIDI Channel Data
         if (analysis.channelData && analysis.channelData.length > 0) {
@@ -106,8 +105,7 @@ export class RoadRunner3 extends Visualizer {
                 if (midiHandler.midi) {
                     const trackMeta = midiHandler.midi.tracks.find(t => t.channel === chId);
                     if (trackMeta && trackMeta.instrument) {
-                        const cleanName = window.app.midiEngine.GM_MAP[trackMeta.instrument.number] || trackMeta.instrument.name;
-                        track.name = cleanName.replace(/_/g, ' ').toUpperCase();
+                        track.name = (midiHandler.constructor.GM_MAP[trackMeta.instrument.number] || trackMeta.instrument.name).replace(/_/g, ' ').toUpperCase();
                     }
                 }
 
@@ -148,9 +146,10 @@ export class RoadRunner3 extends Visualizer {
         const playheadX = width * this.playheadX;
         const pixelsPerSecond = 200;
 
-        // Use midiEngine for playback time
-        const currentTime = window.app.midiEngine ? window.app.midiEngine.getCurrentTime() : 0;
-        if (window.app.frameCount % 120 === 0) console.log('🎼 Runner3 (Build 1750): Syncing Time:', currentTime.toFixed(2));
+        let currentTime = 0;
+        if (window.app && window.app.midiHandler && typeof window.app.midiHandler.getCurrentTime === 'function') {
+            currentTime = window.app.midiHandler.getCurrentTime();
+        }
 
         // Background
         ctx.fillStyle = '#0a0a12';
