@@ -45,7 +45,7 @@ export class MidiEngine {
     async init(sharedContext, destinationNode) {
         if (this.isInitialized) return;
 
-        console.log('🚀 MidiEngine: Initializing Audio context... (Build: 20260202_1840)');
+        console.log('🚀 MidiEngine: Initializing Audio context... (Build: 20260202_1845)');
         if (sharedContext) {
             await Tone.setContext(sharedContext);
             this.context = sharedContext;
@@ -140,6 +140,7 @@ export class MidiEngine {
             const prg = track.instrument ? track.instrument.number : 0;
             const lib = this.getLibraryName(prg, manifest);
             this.trackSamplers[index] = this.samplers[lib];
+            console.log(`🎹 Track ${index} (Inst: ${prg}) -> Mapped to Lib: [${lib}] | Loaded: ${this.samplers[lib]?.loaded}`);
         });
 
         console.log('✅ MidiEngine: All instruments ready.');
@@ -151,24 +152,45 @@ export class MidiEngine {
     }
 
     scheduleNotes() {
-        console.log(`📅 MidiEngine: Scheduling notes for ${this.midi.tracks.filter(t => t.notes.length > 0).length} tracks...`);
+        console.log(`📅 MidiEngine: Scheduling notes for ${this.midi.tracks.length} tracks...`);
         this.parts.forEach(p => p.dispose());
         this.parts = [];
 
+        let totalNotes = 0;
+
         this.midi.tracks.forEach((track, index) => {
             const sampler = this.trackSamplers[index];
-            if (track.notes.length === 0 || !sampler) return;
+            if (track.notes.length === 0) return;
+
+            if (!sampler) {
+                console.warn(`⚠️ Track ${index} has notes but NO SAMPLER mapped!`);
+                return;
+            }
+
+            console.log(`🎼 Track ${index}: Scheduling ${track.notes.length} notes. Sampler Loaded: ${sampler.loaded}`);
 
             const part = new Tone.Part((time, note) => {
+                // Determine if we should log (limit logs to avoid spam)
+                if (Math.random() < 0.01) {
+                    console.log(`🎵 Note Trigger: ${note.name} @ ${time.toFixed(2)}s | Sampler Loaded: ${sampler.loaded}`);
+                }
+
                 if (sampler.loaded) {
-                    sampler.triggerAttackRelease(note.name, note.duration, time, note.velocity);
+                    try {
+                        sampler.triggerAttackRelease(note.name, note.duration, time, note.velocity);
+                    } catch (e) {
+                        console.error('Trigger Error:', e);
+                    }
+                } else {
+                    console.warn(`❌ Sampler not loaded for note ${note.name}`);
                 }
             }, track.notes.map(n => ({ time: n.time, name: n.name, duration: n.duration, velocity: n.velocity })));
 
             part.start(0);
             this.parts.push(part);
+            totalNotes += track.notes.length;
         });
-        console.log(`✅ MidiEngine: Scheduled ${this.parts.length} parts.`);
+        console.log(`✅ MidiEngine: Scheduled ${this.parts.length} parts with ${totalNotes} notes.`);
     }
 
     async play(fromTime = 0) {
