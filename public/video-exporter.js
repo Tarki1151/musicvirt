@@ -50,7 +50,7 @@ export class VideoExporter {
         // 2. Prepare Streams
         const canvasStream = this.canvas.captureStream(60);
 
-        // Capture Audio - Use the main app's context to avoid "Overload resolution failed" (cross-context)
+        // Capture Audio
         const audioContext = this.app.analyzer.audioContext;
         if (!audioContext) {
             console.error('❌ Export Error: AudioContext not found.');
@@ -60,26 +60,31 @@ export class VideoExporter {
 
         const dest = audioContext.createMediaStreamDestination();
 
-        // Connect Tone.js (MIDI) - Ensure we use the raw destination connection
+        // Connect Tone.js Master (MIDI)
         try {
-            Tone.Destination.connect(dest);
+            // Using Tone.getDestination() ensure we get all sound routed through Tone.js
+            Tone.getDestination().connect(dest);
+            console.log('🔗 Export: Connected Tone.js Master to recorder');
         } catch (e) {
             console.warn('⚠️ Export: Could not connect Tone.js to recorder:', e);
         }
 
-        // Connect Standard Audio (Analyzer) if active
+        // Connect Standard Audio (Analyzer Gain Node)
         if (this.app.analyzer && this.app.analyzer.gainNode) {
             try {
                 this.app.analyzer.gainNode.connect(dest);
+                console.log('🔗 Export: Connected Analyzer Output to recorder');
             } catch (e) {
                 console.warn('⚠️ Export: Could not connect Analyzer to recorder:', e);
             }
         }
 
         const audioTrack = dest.stream.getAudioTracks()[0];
-
         if (audioTrack) {
             canvasStream.addTrack(audioTrack);
+            console.log('✅ Export: Audio track added to stream');
+        } else {
+            console.warn('⚠️ Export: No audio track found in destination stream');
         }
 
         this.stream = canvasStream;
@@ -88,7 +93,7 @@ export class VideoExporter {
         // 3. Initialize Recorder
         // Try to find a supported high-quality codec
         const mimeTypes = [
-            'video/mp4;codecs=avc1',
+            'video/mp4;codecs=avc1,mp4a.40.2',
             'video/webm;codecs=vp9,opus',
             'video/webm;codecs=vp8,opus',
             'video/webm'
@@ -102,9 +107,12 @@ export class VideoExporter {
             }
         }
 
+        console.log('⚙️ Export: Using MIME type:', selectedMime);
+
         this.recorder = new MediaRecorder(canvasStream, {
             mimeType: selectedMime,
-            videoBitsPerSecond: options.quality === '2k' ? 12000000 : 8000000 // 8-12 Mbps
+            videoBitsPerSecond: options.quality === '2k' ? 12000000 : 8000000, // 8-12 Mbps
+            audioBitsPerSecond: 192000 // High quality audio
         });
 
         this.recorder.ondataavailable = (e) => {
