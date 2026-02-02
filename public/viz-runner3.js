@@ -23,7 +23,7 @@ export class RoadRunner3 extends Visualizer {
         this.staffSpacing = 120;
         this.noteSize = 24;
 
-        // Symbols
+        // Symbols - Using curly braces for higher Unicode planes
         this.symbols = {
             quarter: '\u2669',
             eighth: '\u266A',
@@ -61,12 +61,10 @@ export class RoadRunner3 extends Visualizer {
     updateTrackPositions() {
         if (this.tracks.length === 0) return;
 
-        // Dynamic spacing based on track count
         const margin = 100;
         const usableHeight = this.height - margin;
         this.staffSpacing = Math.min(120, usableHeight / (this.tracks.length || 1));
 
-        // Adjust note size if spacing is tight
         this.noteSize = Math.max(14, Math.min(24, this.staffSpacing * 0.2));
 
         const totalHeight = (this.tracks.length - 1) * this.staffSpacing;
@@ -83,17 +81,22 @@ export class RoadRunner3 extends Visualizer {
     }
 
     update(analysis, dt) {
+        // Essential: Store analysis and update internal time via base class
         super.update(analysis, dt);
+
         this.isMidiMode = analysis.isMidi;
         this.showMidiWarning = !analysis.isMidi;
         if (this.showMidiWarning) return;
 
-        const currentTime = (this.analysis && this.analysis.currentTime) || 0;
+        // Use the CENTRAL timing source (prevents static notes)
+        const currentTime = analysis.currentTime || 0;
         const midiHandler = window.app && window.app.midiHandler;
+
+        if (!midiHandler) return;
 
         // Sync Tracks with MIDI Channel Data
         if (analysis.channelData && analysis.channelData.length > 0) {
-            const channelCount = analysis.channelData.length; // No more limit
+            const channelCount = analysis.channelData.length;
             if (this.tracks.length !== channelCount) {
                 this.initTracks(channelCount);
             }
@@ -102,21 +105,23 @@ export class RoadRunner3 extends Visualizer {
                 const chId = analysis.channelData[i].channelId;
                 track.channelId = chId;
 
-                // Sync Name
+                // Safe Instrument Naming
                 if (midiHandler.midi) {
                     const trackMeta = midiHandler.midi.tracks.find(t => t.channel === chId);
                     if (trackMeta && trackMeta.instrument) {
-                        track.name = (midiHandler.constructor.GM_MAP[trackMeta.instrument.number] || trackMeta.instrument.name).replace(/_/g, ' ').toUpperCase();
+                        const gmMap = midiHandler.constructor.GM_MAP || {};
+                        const instName = gmMap[trackMeta.instrument.number] || trackMeta.instrument.name || `CH ${chId}`;
+                        track.name = instName.replace(/_/g, ' ').toUpperCase();
                     }
                 }
 
-                // Get notes for a wider window (6s ahead, 4s back)
+                // Get notes for the timeline window
                 const lookAhead = 6.0;
                 const lookBack = 4.0;
-                const activeNotes = (midiHandler.channels[chId] || [])
-                    .filter(n => n.startTime > currentTime - lookBack && n.startTime < currentTime + lookAhead);
+                const channelNotes = (midiHandler.channels && midiHandler.channels[chId]) || [];
+                const visibleNotes = channelNotes.filter(n => n.startTime > currentTime - lookBack && n.startTime < currentTime + lookAhead);
 
-                track.nodes = activeNotes.map(n => ({
+                track.nodes = visibleNotes.map(n => ({
                     time: n.startTime,
                     pitch: n.note,
                     name: n.name,
@@ -132,97 +137,92 @@ export class RoadRunner3 extends Visualizer {
         const ctx = this.ctx;
         if (!ctx) return;
 
-        // Show Warning if not MIDI
         if (this.showMidiWarning) {
             ctx.fillStyle = 'rgba(0,0,0,0.8)';
-            ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-            ctx.font = '30px Inter';
+            ctx.fillRect(0, 0, this.width, this.height);
+            ctx.font = '30px sans-serif';
             ctx.fillStyle = '#fff';
             ctx.textAlign = 'center';
-            ctx.fillText("⚠️ MIDI File Required for Musical Mode", this.canvas.width / 2, this.canvas.height / 2);
+            ctx.fillText("⚠️ MIDI File Required for Musical Mode", this.width / 2, this.height / 2);
             return;
         }
 
-        const width = this.canvas.width;
+        const width = this.width;
         const playheadX = width * this.playheadX;
-        const pixelsPerSecond = 200;
+        const pixelsPerSecond = 300; // Increased for better scrolling speed
 
+        // Use the CENTRAL timing source (synchronized with update)
         const currentTime = (this.analysis && this.analysis.currentTime) || 0;
+
+        // Debug log help
+        if (window.app && window.app.frameCount % 180 === 0) {
+            console.log(`🎼 Runner3 Sync: Time=${currentTime.toFixed(2)}s, Tracks=${this.tracks.length}`);
+        }
 
         // Background
         ctx.fillStyle = '#0a0a12';
         ctx.fillRect(0, 0, width, this.height);
 
-        this.tracks.forEach((track, trackIdx) => {
+        this.tracks.forEach((track) => {
             const baseY = track.baseY;
             const [r, g, b] = track.color;
             const colorStr = this.rgbString(r, g, b, 1);
 
-            // Draw Staff (5 Lines)
+            // Draw Staff Lines
             const lineSpacing = Math.max(4, this.staffSpacing * 0.08);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
             ctx.lineWidth = 1;
             for (let i = -2; i <= 2; i++) {
                 const y = baseY + (i * lineSpacing);
                 ctx.beginPath();
-                ctx.moveTo(80, y); // Start after clef
+                ctx.moveTo(80, y);
                 ctx.lineTo(width, y);
                 ctx.stroke();
             }
 
             // Clef Symbol
             ctx.fillStyle = colorStr;
-            ctx.font = `${this.noteSize * 1.8}px "Serif"`;
+            ctx.font = `${this.noteSize * 1.8}px serif`;
             ctx.textAlign = 'center';
-            ctx.fillText(track.clef === 'treble' ? '\u{1D11E}' : '\u{1D122}', 40, baseY + (this.noteSize * 0.4));
+            ctx.textBaseline = 'middle';
+            ctx.fillText(track.clef === 'treble' ? this.symbols.treble : this.symbols.bass, 40, baseY);
 
             // Track Label
-            ctx.font = `bold ${Math.max(9, this.noteSize * 0.5)}px Inter`;
+            ctx.font = `bold ${Math.max(9, this.noteSize * 0.5)}px sans-serif`;
             ctx.textAlign = 'left';
-            ctx.fillText(track.name, 80, baseY - (lineSpacing * 2.5));
+            ctx.fillText(track.name, 80, baseY - (lineSpacing * 3));
 
             // Draw Notes
             track.nodes.forEach(note => {
-                const age = note.time - currentTime;
+                const age = note.time - currentTime; // Crucial: age decreases as time increases
                 const x = playheadX + (age * pixelsPerSecond);
 
                 if (x < -100 || x > width + 100) return;
 
-                // Vertical position on staff (C4 is roughly at baseY)
-                // In musical notation, C4 is 60.
-                // Every MIDI value is a half step.
-                // We'll simplify: map 60 to baseY.
-                // One octave is 12 semitones, 7 white keys.
-                // We want 1 step in staff = 1 white key.
-                const pitchMap = {
-                    0: 0, 1: 0.5, 2: 1, 3: 1.5, 4: 2, 5: 3, 6: 3.5, 7: 4, 8: 4.5, 9: 5, 10: 5.5, 11: 6
-                }; // Simple white-key mapping relative to C
-
-                const octave = Math.floor(note.pitch / 12) - 5; // Relative to octave 5
+                // Vertical Mapping
+                const pitchMap = { 0: 0, 1: 0.5, 2: 1, 3: 1.5, 4: 2, 5: 3, 6: 3.5, 7: 4, 8: 4.5, 9: 5, 10: 5.5, 11: 6 };
+                const octave = Math.floor(note.pitch / 12) - 5;
                 const semi = note.pitch % 12;
                 const verticalUnits = (octave * 7) + pitchMap[semi];
                 const y = baseY - (verticalUnits * lineSpacing / 2);
 
-                // Symbol Choice
                 let symbol = this.symbols.quarter;
                 if (note.duration < 0.2) symbol = this.symbols.sixteenth;
                 else if (note.duration < 0.4) symbol = this.symbols.eighth;
 
-                // Magnifying Glass Effect: Scale notes as they approach playhead
                 const dist = Math.abs(age);
-                const magnifyingRange = 0.4; // seconds
-                const zoomFactor = 1.2; // How much it grows
+                const magnifyingRange = 0.4;
+                const zoomFactor = 1.2;
                 const scale = 1.0 + Math.exp(-(dist * dist) / (magnifyingRange * magnifyingRange)) * zoomFactor;
                 const currentNoteSize = this.noteSize * scale;
 
-                // Draw Trail (Comet Tail) if note is active or being played
+                // Trail Effect
                 if (this.showTrails && (note.active || (age < 0 && age > -note.duration))) {
                     const tailLength = Math.min(note.duration * pixelsPerSecond, (currentTime - note.time) * pixelsPerSecond);
                     if (tailLength > 0) {
                         const gradient = ctx.createLinearGradient(x, y, x + tailLength, y);
                         gradient.addColorStop(0, colorStr);
                         gradient.addColorStop(1, 'transparent');
-
                         ctx.beginPath();
                         ctx.strokeStyle = gradient;
                         ctx.lineWidth = currentNoteSize * 0.4;
@@ -236,34 +236,32 @@ export class RoadRunner3 extends Visualizer {
                 ctx.save();
                 ctx.translate(x, y);
 
-                // Glow and Style for active notes
                 if (note.active) {
                     ctx.shadowBlur = 20 * scale;
                     ctx.shadowColor = colorStr;
                     ctx.fillStyle = '#fff';
-                    ctx.font = `${currentNoteSize * 1.2}px "Serif"`;
+                    ctx.font = `${currentNoteSize * 1.2}px serif`;
                 } else {
-                    // Slower fade out for better visibility window
                     ctx.globalAlpha = Math.max(0.1, 1 - (dist / 5.0));
                     ctx.fillStyle = colorStr;
-                    ctx.font = `${currentNoteSize}px "Serif"`;
+                    ctx.font = `${currentNoteSize}px serif`;
                 }
 
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(symbol, 0, 0);
 
-                // Sharp/Flat marker if needed
+                // Accidentals
                 if ([1, 3, 6, 8, 10].includes(semi)) {
-                    ctx.font = `${currentNoteSize * 0.6}px "Serif"`;
-                    ctx.fillText('\u266F', -(currentNoteSize * 0.5), 0); // Sharp
+                    ctx.font = `${currentNoteSize * 0.6}px serif`;
+                    ctx.fillText(this.symbols.sharp, -(currentNoteSize * 0.5), 0);
                 }
 
                 ctx.restore();
             });
         });
 
-        // Vertical Playhead Line
+        // Playhead
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
