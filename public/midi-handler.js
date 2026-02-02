@@ -11,6 +11,11 @@ export class MidiHandler {
         this.isInitialized = false;
     }
 
+    // Safety fallback for cached visualizers
+    getCurrentTime() {
+        return window.app && window.app.midiEngine ? window.app.midiEngine.getCurrentTime() : 0;
+    }
+
     async init(sharedContext) {
         // No audio initialization needed for data-only handler
         this.isInitialized = true;

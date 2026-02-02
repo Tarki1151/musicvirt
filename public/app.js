@@ -1,8 +1,8 @@
-import { AudioAnalyzer } from './audio-analyzer.js?v=2';
-import { MidiHandler } from './midi-handler.js?v=2';
-import { MidiEngine } from './midi-engine.js?v=2';
-import { Visualizers } from './visualizers.js?v=2';
-import { VideoExporter } from './video-exporter.js?v=2';
+import { AudioAnalyzer } from './audio-analyzer.js?v=3';
+import { MidiHandler } from './midi-handler.js?v=3';
+import { MidiEngine } from './midi-engine.js?v=3';
+import { Visualizers } from './visualizers.js?v=3';
+import { VideoExporter } from './video-exporter.js?v=3';
 
 /**
  * Main Application Module
@@ -399,8 +399,13 @@ class AudioVisualizerApp {
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
         if (this.visualizers[this.currentModeIndex]) {
-            this.visualizers[this.currentModeIndex].update(analysis, dt);
-            this.visualizers[this.currentModeIndex].render();
+            try {
+                this.visualizers[this.currentModeIndex].update(analysis, dt);
+                this.visualizers[this.currentModeIndex].render();
+            } catch (e) {
+                console.error(`❌ App: Visualizer Error [${this.visualizers[this.currentModeIndex].getName()}]:`, e);
+                this.showToast('Görselleştirme Hatası');
+            }
         }
 
         requestAnimationFrame((t) => this.animate(t));
