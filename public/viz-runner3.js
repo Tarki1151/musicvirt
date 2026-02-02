@@ -38,6 +38,7 @@ export class RoadRunner3 extends Visualizer {
 
         this.isMidiMode = false;
         this.showMidiWarning = false;
+        this.showTrails = true; // Comet tail toggle
 
         this.initTracks(2);
     }
@@ -108,9 +109,9 @@ export class RoadRunner3 extends Visualizer {
                     }
                 }
 
-                // Get notes for the window
-                const lookAhead = 3.0;
-                const lookBack = 1.0;
+                // Get notes for a wider window (6s ahead, 4s back)
+                const lookAhead = 6.0;
+                const lookBack = 4.0;
                 const activeNotes = (midiHandler.channels[chId] || [])
                     .filter(n => n.startTime > currentTime - lookBack && n.startTime < currentTime + lookAhead);
 
@@ -183,7 +184,7 @@ export class RoadRunner3 extends Visualizer {
                 const age = note.time - currentTime;
                 const x = playheadX + (age * pixelsPerSecond);
 
-                if (x < -50 || x > width + 50) return;
+                if (x < -100 || x > width + 100) return;
 
                 // Vertical position on staff (C4 is roughly at baseY)
                 // In musical notation, C4 is 60.
@@ -212,6 +213,24 @@ export class RoadRunner3 extends Visualizer {
                 const scale = 1.0 + Math.exp(-(dist * dist) / (magnifyingRange * magnifyingRange)) * zoomFactor;
                 const currentNoteSize = this.noteSize * scale;
 
+                // Draw Trail (Comet Tail) if note is active or being played
+                if (this.showTrails && (note.active || (age < 0 && age > -note.duration))) {
+                    const tailLength = Math.min(note.duration * pixelsPerSecond, (currentTime - note.time) * pixelsPerSecond);
+                    if (tailLength > 0) {
+                        const gradient = ctx.createLinearGradient(x, y, x + tailLength, y);
+                        gradient.addColorStop(0, colorStr);
+                        gradient.addColorStop(1, 'transparent');
+
+                        ctx.beginPath();
+                        ctx.strokeStyle = gradient;
+                        ctx.lineWidth = currentNoteSize * 0.4;
+                        ctx.lineCap = 'round';
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + tailLength, y);
+                        ctx.stroke();
+                    }
+                }
+
                 ctx.save();
                 ctx.translate(x, y);
 
@@ -222,7 +241,8 @@ export class RoadRunner3 extends Visualizer {
                     ctx.fillStyle = '#fff';
                     ctx.font = `${currentNoteSize * 1.2}px "Serif"`;
                 } else {
-                    ctx.globalAlpha = Math.max(0.1, 1 - (dist / 2.5)); // Fade out distant notes
+                    // Slower fade out for better visibility window
+                    ctx.globalAlpha = Math.max(0.1, 1 - (dist / 5.0));
                     ctx.fillStyle = colorStr;
                     ctx.font = `${currentNoteSize}px "Serif"`;
                 }

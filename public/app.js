@@ -188,6 +188,19 @@ class AudioVisualizerApp {
             });
         }
 
+        // Trails Toggle (Comet Tail)
+        const trailsToggle = document.getElementById('trailsToggle');
+        if (trailsToggle) {
+            trailsToggle.addEventListener('change', (e) => {
+                const val = e.target.checked;
+                this.visualizers.forEach(v => {
+                    if (v.constructor.name === 'RoadRunner3') {
+                        v.showTrails = val;
+                    }
+                });
+            });
+        }
+
         // Adjustment Buttons (+ / -)
         document.querySelectorAll('.adj-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -252,6 +265,9 @@ class AudioVisualizerApp {
 
             const midi = await this.midiHandler.loadMidiFile(file);
             console.log('✅ App: MIDI processing complete.');
+            if (this.elements.trackName) {
+                this.elements.trackName.innerText = file.name.replace(/\.[^/.]+$/, "");
+            }
             if (this.elements.trackTime) {
                 this.elements.trackTime.innerText = `0:00 / ${this.formatTime(midi.duration)}`;
             }
@@ -262,6 +278,9 @@ class AudioVisualizerApp {
             await this.analyzer.init();
             await this.analyzer.loadAudio(file);
             console.log('✅ App: Audio loading complete.');
+            if (this.elements.trackName) {
+                this.elements.trackName.innerText = file.name.replace(/\.[^/.]+$/, "");
+            }
             this.startPlayback();
         }
     }
