@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 Audio Reactive Visualizer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <canvas id="visualizer"></canvas>
+
+    <div class="overlay">
+        <header class="top-bar">
+            <div class="logo">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+                <span class="logo-text">Audio Visualizer</span>
+            </div>
+            <div class="status-bar">
+                <div class="mode-badge">Mode: <span id="currentMode">Spectrum Analyzer</span></div>
+                <div class="fps-counter" id="fps">60 FPS</div>
+                <button class="settings-toggle" id="settingsToggle" title="Ayarlar">⚙️</button>
+            </div>
+        </header>
+
+        <!-- Settings Panel -->
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-header">
+                <h3>⚙️ Görsel Ayarları</h3>
+                <button class="close-settings" id="closeSettings">✕</button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-group">
+                    <label>Hassasiyet</label>
+                    <div class="setting-control">
+                        <button class="adj-btn" data-target="sensitivity" data-dir="-1">−</button>
+                        <input type="range" id="sensitivityRange" min="0.5" max="3" step="0.1" value="1.5">
+                        <button class="adj-btn" data-target="sensitivity" data-dir="1">+</button>
+                        <span class="setting-value" id="sensitivityValue">1.5</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <label>Glow Yoğunluğu</label>
+                    <div class="setting-control">
+                        <button class="adj-btn" data-target="glow" data-dir="-1">−</button>
+                        <input type="range" id="glowRange" min="0" max="2" step="0.1" value="1">
+                        <button class="adj-btn" data-target="glow" data-dir="1">+</button>
+                        <span class="setting-value" id="glowValue">1.0</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <label>Animasyon Hızı</label>
+                    <div class="setting-control">
+                        <button class="adj-btn" data-target="speed" data-dir="-1">−</button>
+                        <input type="range" id="speedRange" min="0.5" max="2" step="0.1" value="1">
+                        <button class="adj-btn" data-target="speed" data-dir="1">+</button>
+                        <span class="setting-value" id="speedValue">1.0</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <label>Parçacık Sayısı</label>
+                    <div class="setting-control">
+                        <button class="adj-btn" data-target="particles" data-dir="-1">−</button>
+                        <input type="range" id="particlesRange" min="100" max="2000" step="100" value="1000">
+                        <button class="adj-btn" data-target="particles" data-dir="1">+</button>
+                        <span class="setting-value" id="particlesValue">1000</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <label>Renk Teması</label>
+                    <div class="color-buttons">
+                        <button class="color-btn active" data-theme="default"
+                            style="background: linear-gradient(135deg, #6366f1, #ec4899)"></button>
+                        <button class="color-btn" data-theme="ocean"
+                            style="background: linear-gradient(135deg, #06b6d4, #3b82f6)"></button>
+                        <button class="color-btn" data-theme="fire"
+                            style="background: linear-gradient(135deg, #f97316, #ef4444)"></button>
+                        <button class="color-btn" data-theme="nature"
+                            style="background: linear-gradient(135deg, #22c55e, #84cc16)"></button>
+                        <button class="color-btn" data-theme="purple"
+                            style="background: linear-gradient(135deg, #a855f7, #6366f1)"></button>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <label>Track Offset (Runner)</label>
+                    <div class="setting-control">
+                        <button class="adj-btn" data-target="trackOffset" data-dir="-1">−</button>
+                        <input type="range" id="trackOffsetRange" min="-2" max="2" step="0.5" value="0">
+                        <button class="adj-btn" data-target="trackOffset" data-dir="1">+</button>
+                        <span class="setting-value" id="trackOffsetValue">0</span>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <label>Görünen Kanal (Runner)</label>
+                    <div class="setting-control">
+                        <button class="adj-btn" data-target="visibleChannels" data-dir="-1">−</button>
+                        <input type="range" id="visibleChannelsRange" min="1" max="16" step="1" value="16">
+                        <button class="adj-btn" data-target="visibleChannels" data-dir="1">+</button>
+                        <span class="setting-value" id="visibleChannelsValue">16</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="dropZone" class="drop-zone">
+            <div class="drop-content">
+                <div class="drop-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                </div>
+                <h2>Müzik Dosyası Yükle</h2>
+                <p>Dosyayı sürükleyip bırakın veya</p>
+                <label class="upload-btn">
+                    <input type="file" id="audioFile" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.mid,.midi">
+                    <span>Dosya Seç</span>
+                </label>
+                <p class="supported">MP3, WAV, OGG, FLAC, M4A, MIDI desteklenir</p>
+            </div>
+        </div>
+
+        <nav class="mode-selector">
+            <button class="mode-btn active" title="Spectrum Analyzer">
+                <span class="mode-icon">📊</span>
+                <span class="mode-text">Spectrum</span>
+            </button>
+            <button class="mode-btn" title="Waveform">
+                <span class="mode-icon">🌊</span>
+                <span class="mode-text">Waveform</span>
+            </button>
+            <button class="mode-btn" title="Particles">
+                <span class="mode-icon">✨</span>
+                <span class="mode-text">Particles</span>
+            </button>
+            <button class="mode-btn" title="Geometric">
+                <span class="mode-icon">🔷</span>
+                <span class="mode-text">Geometric</span>
+            </button>
+            <button class="mode-btn" title="Landscape Mode">
+                <img src="https://api.iconify.design/ph:mountains-fill.svg" width="20" height="20" alt="Landscape">
+                <span>LANDSCAPE</span>
+            </button>
+            <button class="mode-btn" title="Road Runner Mode">
+                <img src="https://api.iconify.design/ph:guitar-fill.svg" width="20" height="20" alt="Runner">
+                <span>RUNNER</span>
+            </button>
+            <button class="mode-btn" title="Vertical Runner Mode">
+                <img src="https://api.iconify.design/ph:piano-keys-fill.svg" width="20" height="20" alt="Runner 2">
+                <span>RUNNER 2</span>
+            </button>
+        </nav>
+
+        <footer class="controls" id="controls" style="display: none;">
+            <div class="controls-left">
+                <button class="play-btn" id="playBtn">
+                    <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    <svg class="pause-icon" viewBox="0 0 24 24" fill="currentColor" width="20" height="20"
+                        style="display:none;">
+                        <rect x="6" y="4" width="4" height="16"></rect>
+                        <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                </button>
+                <div class="track-info">
+                    <div class="track-name" id="trackName">Unknown Track</div>
+                    <div class="track-time" id="trackTime">0:00 / 0:00</div>
+                </div>
+            </div>
+            <div class="progress-container">
+                <input type="range" class="progress-bar" id="progress" min="0" max="100" value="0">
+            </div>
+            <div class="controls-right">
+                <div class="volume-control">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                    <input type="range" id="volume" min="0" max="1" step="0.05" value="1">
+                </div>
+                <button class="control-btn" id="fullscreenBtn" title="Tam Ekran">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path
+                            d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
