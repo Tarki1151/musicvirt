@@ -128,55 +128,23 @@
                     </div>
                 </div>
 
-                <div class="setting-group export-group">
-                    <label>Video Export (Beta)</label>
-                    <div class="export-options">
-                        <div class="export-option-row">
-                            <span>Format:</span>
-                            <select id="exportRatio">
-                                <option value="16:9">16:9 (Yatay)</option>
-                                <option value="9:16">9:16 (Dikey)</option>
-                            </select>
-                        </div>
-                        <div class="export-option-row">
-                            <span>Kalite:</span>
-                            <select id="exportQuality">
-                                <option value="1080p">1080p (Full HD)</option>
-                                <option value="2k">2K (High Res)</option>
-                            </select>
-                        </div>
-                        <button id="startExportBtn" class="export-btn">
-                            <span class="btn-icon">⏺️</span> Kaydı Başlat
-                        </button>
-                        <div id="exportStatus" class="export-status" style="display: none;">
-                            <span class="record-dot"></span> Kaydediliyor... <span id="recordTime">00:00</span>
-                        </div>
-                    </div>
-                </div>
+
             </div>
         </div>
 
-        <div id="dropZone" class="drop-zone">
-            <div class="drop-content">
-                <div class="drop-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+
+
+        <footer class="controls" id="controls">
+            <div class="controls-left">
+                <label class="control-btn" title="Dosya Aç">
+                    <input type="file" id="audioFile" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.mid,.midi"
+                        multiple style="display:none;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                         <polyline points="17 8 12 3 7 8"></polyline>
                         <line x1="12" y1="3" x2="12" y2="15"></line>
                     </svg>
-                </div>
-                <h2>Müzik Dosyası Yükle</h2>
-                <p>Dosyayı sürükleyip bırakın veya</p>
-                <label class="upload-btn">
-                    <input type="file" id="audioFile" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a,.aac,.mid,.midi">
-                    <span>Dosya Seç</span>
                 </label>
-                <p class="supported">MP3, WAV, OGG, FLAC, M4A, MIDI desteklenir</p>
-            </div>
-        </div>
-
-        <footer class="controls" id="controls" style="display: none;">
-            <div class="controls-left">
                 <button class="play-btn" id="playBtn">
                     <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
                         <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -185,6 +153,18 @@
                         style="display:none;">
                         <rect x="6" y="4" width="4" height="16"></rect>
                         <rect x="14" y="4" width="4" height="16"></rect>
+                    </svg>
+                </button>
+                <button class="control-btn" id="restartBtn" title="Baştan Çal">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                        <path d="M1 4v6h6"></path>
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                    </svg>
+                </button>
+                <button class="control-btn" id="nextBtn" title="Sıradaki Parça">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
+                        <polygon points="5 4 15 12 5 20 5 4"></polygon>
+                        <rect x="17" y="4" width="3" height="16"></rect>
                     </svg>
                 </button>
                 <div class="track-info">
@@ -202,6 +182,36 @@
                         <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                     </svg>
                     <input type="range" id="volume" min="0" max="1" step="0.05" value="1">
+                </div>
+
+                <div class="export-settings-compact">
+                    <div class="radio-group-horizontal" id="ratioSelect">
+                        <label class="radio-mini">
+                            <input type="radio" name="ratio" value="16:9" checked>
+                            <span class="mini-btn">16:9</span>
+                        </label>
+                        <label class="radio-mini">
+                            <input type="radio" name="ratio" value="9:16">
+                            <span class="mini-btn">9:16</span>
+                        </label>
+                    </div>
+                    <div class="radio-group-horizontal" id="qualitySelect">
+                        <label class="radio-mini">
+                            <input type="radio" name="quality" value="1080p" checked>
+                            <span class="mini-btn">FHD</span>
+                        </label>
+                        <label class="radio-mini">
+                            <input type="radio" name="quality" value="2k">
+                            <span class="mini-btn">2K</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button class="record-toggle-btn" id="startExportBtn" title="Kaydı Başlat/Durdur">
+                    <div class="record-indicator"></div>
+                </button>
+                <div id="exportStatus" class="export-status-compact" style="display: none;">
+                    <span id="recordTime">00:00</span>
                 </div>
                 <button class="control-btn" id="fullscreenBtn" title="Tam Ekran">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">

@@ -68,7 +68,7 @@ const soundfontDownloader = () => ({
 export default defineConfig({
     root: 'public',
     server: {
-        port: 3000,
+        port: 3036,
         open: true,
         hmr: true,
     },

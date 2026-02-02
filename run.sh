@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configuration
-PORT1=3000
-PORT2=3001
+PORT1=3036
+PORT2=3037
 LOG_FILE="vite.log"
 PID_FILE=".vite.pid"
 

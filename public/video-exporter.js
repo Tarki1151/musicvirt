@@ -3,6 +3,7 @@ import * as Tone from 'tone';
 /**
  * VideoExporter
  * Captures Canvas and Tone.js shared audio into a high-quality video.
+ * Optimized for robustness against context mismatches and 1-second truncation.
  */
 export class VideoExporter {
     constructor(canvas, app) {
@@ -20,12 +21,10 @@ export class VideoExporter {
     async startRecording(options = { ratio: '16:9', quality: '1080p' }) {
         if (this.isRecording) return;
 
-        // 1. Set State EARLY to prevent app.onResize() from resetting size
         this.isRecording = true;
-
         console.log('📹 Export: Starting recording session...');
 
-        // 1. Set Resolution
+        // 1. Prepare Resolution
         this.originalWidth = window.innerWidth;
         this.originalHeight = window.innerHeight;
 
@@ -40,74 +39,65 @@ export class VideoExporter {
             targetH = options.quality === '2k' ? 1440 : 1080;
         }
 
-        // Apply resolution to canvas
+        // Apply resolution
         this.canvas.width = targetW;
         this.canvas.height = targetH;
-
-        // Force visualizers to adapt to new size
         this.app.visualizers.forEach(v => v.resize(targetW, targetH));
 
-        // 2. Prepare Streams
-        const canvasStream = this.canvas.captureStream(60);
+        // Let the canvas "settle" for 100ms before capturing the stream
+        // This prevents the "codec description change" warning in Chrome
+        await new Promise(r => setTimeout(r, 100));
 
-        // Resume context to ensure audio is flowing
+        // 2. Prepare Streams
+        // Use 30fps for stability (especially on Mac/Chrome at high resolutions)
+        const canvasStream = this.canvas.captureStream(30);
+
+        // Standardize Audio Context
+        const audioContext = this.app.analyzer.audioContext || Tone.context.rawContext;
         if (audioContext.state === 'suspended') {
             await audioContext.resume();
         }
 
-        // IMPORTANT: Create Destination using Tone.context to allow connection
-        const dest = Tone.context.createMediaStreamDestination();
+        // Create recording destination
+        const dest = audioContext.createMediaStreamDestination();
 
-
-        // Connect Tone.js Destination (MIDI)
+        // Connect Tone.js (MIDI)
         try {
-            // Using Tone.Destination connects to the final output node of Tone.js
-            Tone.Destination.connect(dest);
-            console.log('🔗 Export: Connected Tone.js Master to recorder');
+            Tone.getDestination().connect(dest);
+            console.log('🔗 Export: Hooked Tone.js Output');
         } catch (e) {
-            console.warn('⚠️ Export: Could not connect Tone.js to recorder:', e);
+            console.warn('⚠️ Export: Tone.js hook failed:', e);
         }
 
-        // Connect Standard Audio (Analyzer Gain Node)
+        // Connect Analyzer (Standard Audio)
         if (this.app.analyzer && this.app.analyzer.gainNode) {
             try {
                 this.app.analyzer.gainNode.connect(dest);
-                console.log('🔗 Export: Connected Analyzer Output to recorder');
+                console.log('🔗 Export: Hooked Standard Audio');
             } catch (e) {
-                console.warn('⚠️ Export: Could not connect Analyzer to recorder:', e);
+                console.warn('⚠️ Export: Analyzer hook failed:', e);
             }
         }
 
-        const audioStream = dest.stream;
-        const audioTracks = audioStream.getAudioTracks();
+        const audioTracks = dest.stream.getAudioTracks();
+        audioTracks.forEach(t => t.enabled = true);
 
-        // Ensure tracks are enabled
-        audioTracks.forEach(track => {
-            track.enabled = true;
-            console.log('🔊 Export: Audio track active:', track.label);
-        });
-
-        const tracks = [
+        // 3. Construct Unified Stream
+        this.stream = new MediaStream([
             ...canvasStream.getVideoTracks(),
             ...audioTracks
-        ];
+        ]);
 
-        if (audioTracks.length === 0) {
-            console.warn('⚠️ Export: No audio track found in destination stream');
-        } else {
-            console.log(`✅ Export: ${audioTracks.length} audio track(s) found and merged`);
-        }
-
-        // 3. Unified Stream
-        this.stream = new MediaStream(tracks);
         this.chunks = [];
 
-        // 3. Initialize Recorder
-        // Try to find a supported high-quality codec
+        // 4. Codec Selection (Aggressive avc3 prioritization to avoid avc1 warnings)
         const mimeTypes = [
+            'video/mp4;codecs="avc3.42E01E, mp4a.40.2"', // H.264 High Profile (AVC3)
+            'video/mp4;codecs="avc3.4D401E, mp4a.40.2"', // H.264 Main Profile (AVC3)
+            'video/mp4;codecs=avc3',
             'video/mp4;codecs=avc1,mp4a.40.2',
+            'video/mp4',
             'video/webm;codecs=vp9,opus',
-            'video/webm;codecs=vp8,opus',
             'video/webm'
         ];
 
@@ -118,30 +108,44 @@ export class VideoExporter {
                 break;
             }
         }
+        console.log('🎬 Export: Final Chosen Format ->', selectedMime);
 
-        console.log('⚙️ Export: Using MIME type:', selectedMime);
-
+        // 5. Initialize Recorder
         this.recorder = new MediaRecorder(this.stream, {
             mimeType: selectedMime,
-            videoBitsPerSecond: options.quality === '2k' ? 12000000 : 8000000, // 8-12 Mbps
-            audioBitsPerSecond: 192000 // High quality audio
+            videoBitsPerSecond: options.quality === '2k' ? 12000000 : 8000000,
+            audioBitsPerSecond: 192000
         });
 
         this.recorder.ondataavailable = (e) => {
-            if (e.data.size > 0) this.chunks.push(e.data);
+            if (e.data && e.data.size > 0) {
+                this.chunks.push(e.data);
+                if (this.chunks.length % 5 === 0) {
+                    console.log(`📹 Export: Recording... (Chunks: ${this.chunks.length})`);
+                }
+            }
+        };
+
+        this.recorder.onerror = (e) => {
+            console.error('❌ Export Recorder Error:', e.error);
         };
 
         this.recorder.onstop = () => {
+            console.log(`📹 Export: Finalizing ${this.chunks.length} chunks...`);
             this.saveVideo(selectedMime.split(';')[0].split('/')[1]);
-            // Restore original size
             this.canvas.width = this.originalWidth;
             this.canvas.height = this.originalHeight;
             this.app.onResize();
         };
 
-        this.recorder.start(100); // Capture in 100ms slices for stability
-        this.startTime = Date.now();
-        console.log('✅ Export: Recording started at', targetW, 'x', targetH);
+        // Warm-up delay to ensure stream is stable
+        setTimeout(() => {
+            if (this.recorder.state === 'inactive') {
+                this.recorder.start(1000);
+                this.startTime = Date.now();
+                console.log('✅ Export: Recording ACTIVE');
+            }
+        }, 1000);
     }
 
     stopRecording() {
@@ -152,7 +156,6 @@ export class VideoExporter {
     }
 
     saveVideo(extension) {
-        // Fallback extension if generic
         const ext = extension === 'webm' ? 'webm' : 'mp4';
         const blob = new Blob(this.chunks, { type: this.recorder.mimeType });
         const url = URL.createObjectURL(blob);
@@ -162,7 +165,7 @@ export class VideoExporter {
         a.download = `Visualizer-Export-${timestamp}.${ext}`;
         a.click();
         window.URL.revokeObjectURL(url);
-        console.log(`✅ Export: Video saved as ${a.download}`);
+        console.log(`✅ Export: File saved: ${a.download}`);
     }
 
     getRecordingTime() {
