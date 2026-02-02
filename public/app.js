@@ -1,8 +1,8 @@
-import { AudioAnalyzer } from './audio-analyzer.js';
-import { MidiHandler } from './midi-handler.js';
-import { MidiEngine } from './midi-engine.js';
-import { Visualizers } from './visualizers.js';
-import { VideoExporter } from './video-exporter.js';
+import { AudioAnalyzer } from './audio-analyzer.js?v=2';
+import { MidiHandler } from './midi-handler.js?v=2';
+import { MidiEngine } from './midi-engine.js?v=2';
+import { Visualizers } from './visualizers.js?v=2';
+import { VideoExporter } from './video-exporter.js?v=2';
 
 /**
  * Main Application Module
