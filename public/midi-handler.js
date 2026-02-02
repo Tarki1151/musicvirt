@@ -9,7 +9,8 @@ import Soundfont from 'soundfont-player';
 export class MidiHandler {
     constructor() {
         this.midi = null;
-        this.instruments = {};
+        this.instruments = {}; // Stores soundfont instruments
+        this.synths = {};      // Stores Tone.js synths
         this.notes = [];
         this.channels = {};
         this.isPlaying = false;
@@ -19,7 +20,14 @@ export class MidiHandler {
         this.scheduledEvents = [];
         this.masterVolume = 0.8;
         this.audioContext = null;
-        this.drumSynths = null;
+
+        // Effects chain
+        this.reverb = null;
+        this.limiter = null;
+        this.chorus = null;
+        this.compressor = null;
+        this.eq = null;
+        this.filter = null; // High-cut to soften harsh strings
     }
 
     async init(audioContext) {
@@ -30,13 +38,40 @@ export class MidiHandler {
             await Tone.start();
             this.audioContext = Tone.context.rawContext;
         }
+
+        // Setup Master Effects Chain for "Premium" Sound
+        this.limiter = new Tone.Limiter(-1).toDestination();
+        this.compressor = new Tone.Compressor(-20, 4).connect(this.limiter);
+
+        // Warmer EQ for "Wooden" String feel
+        this.eq = new Tone.EQ3({
+            low: 2,
+            mid: -1,
+            high: -4
+        }).connect(this.compressor);
+
+        // Soften the "digital" edge of high strings
+        this.filter = new Tone.Filter(8000, "lowpass").connect(this.eq);
+
+        // Lush "Concert Hall" Reverb
+        this.reverb = new Tone.Reverb({
+            decay: 4.0, // Longer for orchestral feel
+            preDelay: 0.15,
+            wet: 0.35 // Higher wetness for strings
+        }).connect(this.filter);
+
+        this.chorus = new Tone.Chorus(3, 2.5, 0.5).connect(this.reverb);
+        this.chorus.wet.value = 0.08;
+
         Tone.Destination.volume.value = Tone.gainToDb(this.masterVolume);
+        console.log('Premium Audio Engine Initialized');
     }
 
     async loadMidiFile(file) {
         try {
             this.stop();
             this.instruments = {};
+            this.synths = {};
 
             const arrayBuffer = await file.arrayBuffer();
             this.midi = new Midi(arrayBuffer);
@@ -46,9 +81,7 @@ export class MidiHandler {
             }
 
             this.processNotes();
-
-            // Start loading instruments in background but DONT WAIT
-            this.loadInstruments();
+            this.loadInstruments(); // Background loading
 
             return this.midi;
         } catch (error) {
@@ -60,7 +93,6 @@ export class MidiHandler {
     processNotes() {
         this.notes = [];
         this.channels = {};
-
         for (const track of this.midi.tracks) {
             if (track.notes.length === 0) continue;
             const channel = track.channel;
@@ -82,36 +114,83 @@ export class MidiHandler {
         this.notes.sort((a, b) => a.startTime - b.startTime);
     }
 
+    // General MIDI Instrument Mapping (0-127)
+    static GM_MAP = {
+        0: 'acoustic_grand_piano', 1: 'bright_acoustic_piano', 2: 'electric_grand_piano', 3: 'honkytonk_piano',
+        4: 'electric_piano_1', 5: 'electric_piano_2', 6: 'harpsichord', 7: 'clavi', 8: 'celesta',
+        9: 'glockenspiel', 10: 'music_box', 11: 'vibraphone', 12: 'marimba', 13: 'xylophone',
+        14: 'tubular_bells', 15: 'dulcimer', 16: 'drawbar_organ', 17: 'percussive_organ', 18: 'rock_organ',
+        19: 'church_organ', 20: 'reed_organ', 21: 'accordion', 22: 'harmonica', 23: 'tango_accordion',
+        24: 'acoustic_guitar_nylon', 25: 'acoustic_guitar_steel', 26: 'electric_guitar_jazz',
+        27: 'electric_guitar_clean', 28: 'electric_guitar_muted', 29: 'overdriven_guitar',
+        30: 'distortion_guitar', 31: 'guitar_harmonics', 32: 'acoustic_bass', 33: 'electric_bass_finger',
+        34: 'electric_bass_pick', 35: 'fretless_bass', 36: 'slap_bass_1', 37: 'slap_bass_2',
+        38: 'synth_bass_1', 39: 'synth_bass_2', 40: 'violin', 41: 'viola', 42: 'cello', 43: 'contrabass',
+        44: 'tremolo_strings', 45: 'pizzicato_strings', 46: 'orchestral_harp', 47: 'timpani',
+        48: 'string_ensemble_1', 49: 'string_ensemble_2', 50: 'synth_strings_1', 51: 'synth_strings_2',
+        52: 'choir_aahs', 53: 'voice_oohs', 54: 'synth_voice', 55: 'orchestra_hit', 56: 'trumpet',
+        57: 'trombone', 58: 'tuba', 59: 'muted_trumpet', 60: 'french_horn', 61: 'brass_section',
+        62: 'synth_brass_1', 63: 'synth_brass_2', 64: 'soprano_sax', 65: 'alto_sax', 66: 'tenor_sax',
+        67: 'baritone_sax', 68: 'oboe', 69: 'english_horn', 70: 'bassoon', 71: 'clarinet',
+        72: 'piccolo', 73: 'flute', 74: 'recorder', 75: 'pan_flute', 76: 'blown_bottle', 77: 'shakuhachi',
+        78: 'whistle', 79: 'ocarina', 80: 'lead_1_square', 81: 'lead_2_sawtooth', 82: 'lead_3_calliope',
+        83: 'lead_4_chiff', 84: 'lead_5_charang', 85: 'lead_6_voice', 86: 'lead_7_fifths',
+        87: 'lead_8_bass_lead', 88: 'pad_1_new_age', 89: 'pad_2_warm', 90: 'pad_3_polysynth',
+        91: 'pad_4_choir', 92: 'pad_5_bowed', 93: 'pad_6_metallic', 94: 'pad_7_halo', 95: 'pad_8_sweep',
+        96: 'fx_1_rain', 97: 'fx_2_soundtrack', 98: 'fx_3_crystal', 99: 'fx_4_atmosphere',
+        100: 'fx_5_brightness', 101: 'fx_6_goblins', 102: 'fx_7_echoes', 103: 'fx_8_sci-fi',
+        104: 'sitar', 105: 'banjo', 106: 'shamisen', 107: 'koto', 108: 'kalimba', 109: 'bagpipe',
+        110: 'fiddle', 111: 'shanai', 112: 'tinkle_bell', 113: 'agogo', 114: 'steel_drums',
+        115: 'woodblock', 116: 'taiko_drum', 117: 'melodic_tom', 118: 'synth_drum', 119: 'reverse_cymbal',
+        120: 'guitar_fret_noise', 121: 'breath_noise', 122: 'seashore', 123: 'bird_tweet',
+        124: 'telephone_ring', 125: 'helicopter', 126: 'applause', 127: 'gunshot'
+    };
+
     async loadInstruments() {
         if (!Soundfont) return;
 
-        // The Vite middleware (in vite.config.js) will auto-download missing files
-        // and save them to /public/soundfonts/FluidR3_GM/ on the first request.
-        const options = { soundfont: 'FluidR3_GM', from: './soundfonts/FluidR3_GM/' };
+        const options = {
+            soundfont: 'MusyngKite',
+            from: './soundfonts/MusyngKite/',
+            gain: 2
+        };
 
         this.midi.tracks.forEach((track, index) => {
             if (track.notes.length === 0 || track.channel === 9) return;
-            let cleanName = this.cleanInstrumentName(track.instrument.name);
 
-            Soundfont.instrument(this.audioContext, cleanName, options)
+            // Use GM Program Number for robust instrument identification
+            const prgNum = track.instrument ? track.instrument.number : 0;
+            const gmName = MidiHandler.GM_MAP[prgNum] || 'acoustic_grand_piano';
+
+            console.log(`Track ${index} [Ch ${track.channel}] mapping Program ${prgNum} to ${gmName}`);
+
+            Soundfont.instrument(this.audioContext, gmName, options)
                 .then(inst => {
-                    console.log(`Loaded ${cleanName}`);
+                    console.log(`✓ Loaded: ${gmName}`);
+                    inst.connect(this.chorus);
                     this.instruments[index] = inst;
                 })
                 .catch(() => {
-                    console.warn(`Failed to load ${cleanName}, using synth fallback.`);
-                    this.instruments[index] = 'fallback_synth';
+                    console.warn(`! Fallback for ${gmName}`);
+                    this.createFallbackSynth(index, gmName);
                 });
         });
     }
 
-    cleanInstrumentName(name) {
-        if (!name) return 'acoustic_grand_piano';
-        let clean = name.toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '').replace(/_+/g, '_');
-        const fixes = { 'synthbrass_1': 'synth_brass_1', 'synthbrass_2': 'synth_brass_2' };
-        if (fixes[clean]) return fixes[clean];
-        if (clean.startsWith('synth') && !clean.startsWith('synth_')) clean = clean.replace('synth', 'synth_');
-        return clean;
+    createFallbackSynth(index, name) {
+        let synth;
+        if (name.includes('piano') || name.includes('harpsichord')) {
+            synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.02, release: 1 } });
+        } else if (name.includes('strings') || name.includes('pad') || name.includes('ensemble') || name.includes('choir')) {
+            synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.5, release: 2 } });
+        } else if (name.includes('lead') || name.includes('brass') || name.includes('trumpet')) {
+            synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.05, release: 0.5 } });
+        } else {
+            synth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' } });
+        }
+
+        synth.connect(this.reverb);
+        this.synths[index] = synth;
     }
 
     play(startTime = 0) {
@@ -139,49 +218,34 @@ export class MidiHandler {
         this.scheduledEvents.forEach(id => Tone.Transport.clear(id));
         this.scheduledEvents = [];
 
-        // Increase polyphony to 128 to handle complex MIDI
-        const drumSynth = new Tone.PolySynth(Tone.MembraneSynth, {
-            maxPolyphony: 64
-        }).toDestination();
+        const kick = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 10, oscillator: { type: "sine" }, envelope: { attack: 0.001, decay: 0.4, sustain: 0.01, release: 1.4 } }).connect(this.compressor);
+        const snare = new Tone.NoiseSynth({ noise: { type: "white" }, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).connect(this.compressor);
+        const hihat = new Tone.MetalSynth({ frequency: 200, envelope: { attack: 0.001, decay: 0.1, sustain: 0 }, harmonicity: 5.1, modulationIndex: 32, resonance: 4000, octaves: 1.5 }).connect(this.compressor);
 
-        const hatSynth = new Tone.PolySynth(Tone.MetalSynth, {
-            maxPolyphony: 32
-        }).toDestination();
-
-        const fallbackSynth = new Tone.PolySynth(Tone.Synth, {
-            maxPolyphony: 128,
-            oscillator: { type: 'triangle' }
-        }).toDestination();
-
-        this.drumSynths = { drum: drumSynth, hat: hatSynth, fallback: fallbackSynth };
+        this.drumSynths = { kick, snare, hihat, fallback: new Tone.PolySynth(Tone.Synth).connect(this.reverb) };
 
         this.midi.tracks.forEach((track, index) => {
-            const instrument = this.instruments[index] || 'fallback_synth';
             track.notes.forEach(note => {
                 if (note.time < fromTime) return;
                 const time = note.time - fromTime;
+
                 const eventId = Tone.Transport.schedule((t) => {
-                    // Check instrument status AT THE MOMENT of playing
-                    const currentInstrument = this.instruments[index];
+                    const inst = this.instruments[index];
+                    const synth = this.synths[index];
 
                     if (track.channel === 9) {
-                        if (this.drumSynths) {
-                            if (note.midi === 35 || note.midi === 36) this.drumSynths.drum.triggerAttackRelease("C1", "16n", t, note.velocity);
-                            else if (note.midi >= 42 && note.midi <= 46) this.drumSynths.hat.triggerAttackRelease("32n", t, note.velocity * 0.5);
-                        }
-                    } else if (!currentInstrument || currentInstrument === 'fallback_synth') {
-                        // Still loading or failed? Use fallback
-                        if (this.drumSynths) this.drumSynths.fallback.triggerAttackRelease(note.name, note.duration, t, note.velocity * 0.4);
-                    } else {
-                        // Real instrument loaded!
+                        if (note.midi === 35 || note.midi === 36) this.drumSynths.kick.triggerAttackRelease("C1", "16n", t, note.velocity);
+                        else if (note.midi === 38 || note.midi === 40) this.drumSynths.snare.triggerAttackRelease("16n", t, note.velocity);
+                        else if (note.midi >= 42 && note.midi <= 46) this.drumSynths.hihat.triggerAttackRelease("32n", t, note.velocity * 0.5);
+                        else this.drumSynths.fallback.triggerAttackRelease(note.name, "32n", t, note.velocity * 0.3);
+                    } else if (inst) {
                         try {
-                            currentInstrument.play(note.midi, t, {
-                                duration: note.duration,
-                                gain: note.velocity * this.masterVolume * 2
-                            });
+                            inst.play(note.midi, t, { duration: note.duration, gain: note.velocity * this.masterVolume * 2.5 });
                         } catch (e) {
-                            if (this.drumSynths) this.drumSynths.fallback.triggerAttackRelease(note.name, note.duration, t, note.velocity * 0.4);
+                            if (synth) synth.triggerAttackRelease(note.name, note.duration, t, note.velocity * 0.5);
                         }
+                    } else if (synth) {
+                        synth.triggerAttackRelease(note.name, note.duration, t, note.velocity * 0.5);
                     }
                 }, time);
                 this.scheduledEvents.push(eventId);
@@ -196,11 +260,10 @@ export class MidiHandler {
         this.scheduledEvents = [];
         Object.values(this.instruments).forEach(inst => { if (inst && inst.stop) inst.stop(); });
         if (this.drumSynths) {
-            this.drumSynths.drum.dispose();
-            this.drumSynths.hat.dispose();
-            this.drumSynths.fallback.dispose();
+            Object.values(this.drumSynths).forEach(s => s.dispose());
             this.drumSynths = null;
         }
+        Object.values(this.synths).forEach(s => s.releaseAll());
     }
 
     getCurrentTime() {
@@ -236,9 +299,6 @@ export class MidiHandler {
             bass: Math.min(1, bass),
             mid: Math.min(1, mid),
             high: Math.min(1, high),
-            bassNorm: Math.min(1, bass),
-            midNorm: Math.min(1, mid),
-            highNorm: Math.min(1, high),
             totalEnergy: Math.min(1, bass + mid + high) * 255,
             isBeat: activeNotes.some(n => Math.abs(n.startTime - currentTime) < 0.02),
             channelData: this.getChannelAnalysis(currentTime),
@@ -263,3 +323,4 @@ export class MidiHandler {
         return { bar: parseInt(pos[0]), beat: parseInt(pos[1]), sixteenth: parseFloat(pos[2]), beatProgress: (parseFloat(pos[2]) / 4) };
     }
 }
+

@@ -120,11 +120,24 @@ export class RoadRunner extends Visualizer {
             channelCount = analysis.channelData.length;
             if (channelCount !== this.totalChannels) {
                 this.initTracks(channelCount);
-                // Update names...
-                for (let i = 0; i < channelCount; i++) {
-                    const chId = analysis.channelData[i].channelId;
-                    this.tracks[i].name = `CH${chId + 1}`;
-                    this.tracks[i].channelId = chId;
+            }
+
+            // Sync metadata (Names, etc)
+            for (let i = 0; i < this.tracks.length; i++) {
+                const chId = analysis.channelData[i].channelId;
+                this.tracks[i].channelId = chId;
+
+                // Get Instrument Name from Handler
+                if (window.app.midiHandler && window.app.midiHandler.midi) {
+                    const trackMeta = window.app.midiHandler.midi.tracks.find(t => t.channel === chId);
+                    if (trackMeta && trackMeta.instrument) {
+                        const prgNum = trackMeta.instrument.number;
+                        const cleanName = window.app.midiHandler.constructor.GM_MAP[prgNum] || trackMeta.instrument.name;
+                        // Format: "Violin", "Acoustic Grand Piano"
+                        this.tracks[i].name = cleanName.replace(/_/g, ' ').toUpperCase();
+                    } else {
+                        this.tracks[i].name = `CH${chId + 1}`;
+                    }
                 }
             }
         }
@@ -219,9 +232,9 @@ export class RoadRunner extends Visualizer {
 
             // Track Label
             this.ctx.fillStyle = colorStr;
-            this.ctx.font = 'bold 10px Inter';
+            this.ctx.font = 'bold 11px Inter';
             this.ctx.textAlign = 'left';
-            this.ctx.globalAlpha = 0.5;
+            this.ctx.globalAlpha = 0.8;
             this.ctx.fillText(track.name, 15, y - 8);
             this.ctx.globalAlpha = 1;
 

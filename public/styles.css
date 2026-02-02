@@ -59,8 +59,10 @@ canvas {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px 32px;
-    background: linear-gradient(to bottom, var(--bg-glass), transparent);
+    padding: 12px 32px;
+    background: var(--bg-glass);
+    border-bottom: 1px solid var(--border-color);
+    backdrop-filter: blur(20px);
 }
 
 .logo {
@@ -119,7 +121,7 @@ canvas {
 /* Settings Panel */
 .settings-panel {
     position: fixed;
-    top: 70px;
+    top: 80px;
     right: 20px;
     width: 320px;
     background: var(--bg-glass);
@@ -353,32 +355,25 @@ canvas {
 
 /* Mode Selector */
 .mode-selector {
-    position: fixed;
-    left: 50%;
-    bottom: 100px;
-    transform: translateX(-50%);
     display: flex;
-    gap: 8px;
-    padding: 8px;
-    background: var(--bg-glass);
-    border-radius: 9999px;
+    gap: 4px;
+    padding: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
     border: 1px solid var(--border-color);
-    backdrop-filter: blur(20px);
 }
 
 .mode-btn {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 8px 16px;
+    gap: 8px;
+    padding: 6px 12px;
     background: transparent;
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    border-radius: 12px;
+    border-radius: 8px;
     transition: var(--transition);
-    min-width: 70px;
 }
 
 .mode-btn:hover {
@@ -393,13 +388,14 @@ canvas {
 }
 
 .mode-icon {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
 }
 
 .mode-text {
     font-size: 0.7rem;
-    font-weight: 500;
+    font-weight: 600;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* Controls */

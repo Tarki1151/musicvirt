@@ -21,13 +21,43 @@
                 </svg>
                 <span class="logo-text">Audio Visualizer</span>
             </div>
+
+            <nav class="mode-selector">
+                <button class="mode-btn active" title="Spectrum Analyzer">
+                    <span class="mode-icon">📊</span>
+                    <span class="mode-text">Spectrum</span>
+                </button>
+                <button class="mode-btn" title="Waveform">
+                    <span class="mode-icon">🌊</span>
+                    <span class="mode-text">Waveform</span>
+                </button>
+                <button class="mode-btn" title="Particles">
+                    <span class="mode-icon">✨</span>
+                    <span class="mode-text">Particles</span>
+                </button>
+                <button class="mode-btn" title="Geometric">
+                    <span class="mode-icon">🔷</span>
+                    <span class="mode-text">Geometric</span>
+                </button>
+                <button class="mode-btn" title="Landscape Mode">
+                    <span class="mode-icon">⛰️</span>
+                    <span class="mode-text">LANDSCAPE</span>
+                </button>
+                <button class="mode-btn" title="Road Runner Mode">
+                    <span class="mode-icon">🎸</span>
+                    <span class="mode-text">RUNNER</span>
+                </button>
+                <button class="mode-btn" title="Vertical Runner Mode">
+                    <span class="mode-icon">🎹</span>
+                    <span class="mode-text">RUNNER 2</span>
+                </button>
+            </nav>
+
             <div class="status-bar">
-                <div class="mode-badge">Mode: <span id="currentMode">Spectrum Analyzer</span></div>
                 <div class="fps-counter" id="fps">60 FPS</div>
                 <button class="settings-toggle" id="settingsToggle" title="Ayarlar">⚙️</button>
             </div>
         </header>
-
         <!-- Settings Panel -->
         <div class="settings-panel" id="settingsPanel">
             <div class="settings-header">
@@ -74,34 +104,16 @@
                 <div class="setting-group">
                     <label>Renk Teması</label>
                     <div class="color-buttons">
-                        <button class="color-btn active" data-theme="default"
+                        <button class="color-btn active" data-primary="#6366f1" data-secondary="#ec4899"
                             style="background: linear-gradient(135deg, #6366f1, #ec4899)"></button>
-                        <button class="color-btn" data-theme="ocean"
+                        <button class="color-btn" data-primary="#06b6d4" data-secondary="#3b82f6"
                             style="background: linear-gradient(135deg, #06b6d4, #3b82f6)"></button>
-                        <button class="color-btn" data-theme="fire"
+                        <button class="color-btn" data-primary="#f97316" data-secondary="#ef4444"
                             style="background: linear-gradient(135deg, #f97316, #ef4444)"></button>
-                        <button class="color-btn" data-theme="nature"
+                        <button class="color-btn" data-primary="#22c55e" data-secondary="#84cc16"
                             style="background: linear-gradient(135deg, #22c55e, #84cc16)"></button>
-                        <button class="color-btn" data-theme="purple"
+                        <button class="color-btn" data-primary="#a855f7" data-secondary="#6366f1"
                             style="background: linear-gradient(135deg, #a855f7, #6366f1)"></button>
-                    </div>
-                </div>
-                <div class="setting-group">
-                    <label>Track Offset (Runner)</label>
-                    <div class="setting-control">
-                        <button class="adj-btn" data-target="trackOffset" data-dir="-1">−</button>
-                        <input type="range" id="trackOffsetRange" min="-2" max="2" step="0.5" value="0">
-                        <button class="adj-btn" data-target="trackOffset" data-dir="1">+</button>
-                        <span class="setting-value" id="trackOffsetValue">0</span>
-                    </div>
-                </div>
-                <div class="setting-group">
-                    <label>Görünen Kanal (Runner)</label>
-                    <div class="setting-control">
-                        <button class="adj-btn" data-target="visibleChannels" data-dir="-1">−</button>
-                        <input type="range" id="visibleChannelsRange" min="1" max="16" step="1" value="16">
-                        <button class="adj-btn" data-target="visibleChannels" data-dir="1">+</button>
-                        <span class="setting-value" id="visibleChannelsValue">16</span>
                     </div>
                 </div>
             </div>
@@ -125,37 +137,6 @@
                 <p class="supported">MP3, WAV, OGG, FLAC, M4A, MIDI desteklenir</p>
             </div>
         </div>
-
-        <nav class="mode-selector">
-            <button class="mode-btn active" title="Spectrum Analyzer">
-                <span class="mode-icon">📊</span>
-                <span class="mode-text">Spectrum</span>
-            </button>
-            <button class="mode-btn" title="Waveform">
-                <span class="mode-icon">🌊</span>
-                <span class="mode-text">Waveform</span>
-            </button>
-            <button class="mode-btn" title="Particles">
-                <span class="mode-icon">✨</span>
-                <span class="mode-text">Particles</span>
-            </button>
-            <button class="mode-btn" title="Geometric">
-                <span class="mode-icon">🔷</span>
-                <span class="mode-text">Geometric</span>
-            </button>
-            <button class="mode-btn" title="Landscape Mode">
-                <img src="https://api.iconify.design/ph:mountains-fill.svg" width="20" height="20" alt="Landscape">
-                <span>LANDSCAPE</span>
-            </button>
-            <button class="mode-btn" title="Road Runner Mode">
-                <img src="https://api.iconify.design/ph:guitar-fill.svg" width="20" height="20" alt="Runner">
-                <span>RUNNER</span>
-            </button>
-            <button class="mode-btn" title="Vertical Runner Mode">
-                <img src="https://api.iconify.design/ph:piano-keys-fill.svg" width="20" height="20" alt="Runner 2">
-                <span>RUNNER 2</span>
-            </button>
-        </nav>
 
         <footer class="controls" id="controls" style="display: none;">
             <div class="controls-left">

@@ -25,10 +25,15 @@ class AudioVisualizerApp {
             progress: document.getElementById('progress'),
             trackTime: document.getElementById('trackTime'),
             controls: document.getElementById('controls'),
-            dropZone: document.getElementById('dropZone')
+            dropZone: document.getElementById('dropZone'),
+            settingsPanel: document.getElementById('settingsPanel'),
+            settingsToggle: document.getElementById('settingsToggle'),
+            closeSettings: document.getElementById('closeSettings')
         };
 
         this.lastTime = 0;
+        this.frameCount = 0;
+        this.fpsUpdateTime = 0;
     }
 
     async init() {
@@ -37,7 +42,13 @@ class AudioVisualizerApp {
             this.resizeCanvas();
             window.addEventListener('resize', () => this.resizeCanvas());
             this.initVisualizers();
+
+            // Map additional elements
+            this.elements.fpsCounter = document.getElementById('fps');
+            this.elements.currentMode = document.getElementById('currentMode');
+
             this.setupEventListeners();
+            this.setupSettingsListeners();
             await this.midiHandler.init(this.analyzer.audioContext);
             requestAnimationFrame((t) => this.animate(t));
             console.log('App Initialized');
@@ -98,6 +109,19 @@ class AudioVisualizerApp {
             });
         }
 
+        // Settings Toggle
+        if (this.elements.settingsToggle) {
+            this.elements.settingsToggle.addEventListener('click', () => {
+                this.elements.settingsPanel.classList.toggle('open');
+            });
+        }
+
+        if (this.elements.closeSettings) {
+            this.elements.closeSettings.addEventListener('click', () => {
+                this.elements.settingsPanel.classList.remove('open');
+            });
+        }
+
         // Drop Zone support
         const dz = this.elements.dropZone;
         if (dz) {
@@ -110,6 +134,97 @@ class AudioVisualizerApp {
                 if (file) this.processFile(file);
             });
         }
+    }
+
+    setupSettingsListeners() {
+        // Sensitivity
+        const sensRange = document.getElementById('sensitivityRange');
+        const sensVal = document.getElementById('sensitivityValue');
+        if (sensRange) {
+            sensRange.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                this.analyzer.setSensitivity(val);
+                if (sensVal) sensVal.innerText = val.toFixed(1);
+            });
+        }
+
+        // Glow
+        const glowRange = document.getElementById('glowRange');
+        const glowVal = document.getElementById('glowValue');
+        if (glowRange) {
+            glowRange.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                this.visualizers.forEach(v => v.glowMultiplier = val);
+                if (glowVal) glowVal.innerText = val.toFixed(1);
+            });
+        }
+
+        // Speed
+        const speedRange = document.getElementById('speedRange');
+        const speedVal = document.getElementById('speedValue');
+        if (speedRange) {
+            speedRange.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                this.visualizers.forEach(v => v.speedMultiplier = val);
+                if (speedVal) speedVal.innerText = val.toFixed(1);
+            });
+        }
+
+        // Particles
+        const partRange = document.getElementById('particlesRange');
+        const partVal = document.getElementById('particlesValue');
+        if (partRange) {
+            partRange.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                this.visualizers.forEach(v => {
+                    if (v.constructor.name === 'ParticleSystem') {
+                        v.maxParticles = val;
+                        if (v.initParticles) v.initParticles();
+                    }
+                });
+                if (partVal) partVal.innerText = val;
+            });
+        }
+
+        // Adjustment Buttons (+ / -)
+        document.querySelectorAll('.adj-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.target;
+                const dir = parseInt(btn.dataset.dir);
+                let input;
+                if (target === 'sensitivity') input = document.getElementById('sensitivityRange');
+                else if (target === 'glow') input = document.getElementById('glowRange');
+                else if (target === 'speed') input = document.getElementById('speedRange');
+                else if (target === 'particles') input = document.getElementById('particlesRange');
+
+                if (input) {
+                    const step = parseFloat(input.step) || 1;
+                    input.value = parseFloat(input.value) + (step * dir);
+                    input.dispatchEvent(new Event('input'));
+                }
+            });
+        });
+
+        // Color Themes
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const primary = btn.dataset.primary;
+                const secondary = btn.dataset.secondary;
+
+                // Update CSS variables
+                document.documentElement.style.setProperty('--accent-primary', primary);
+                document.documentElement.style.setProperty('--accent-secondary', secondary);
+
+                // Update active state
+                document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Update visualizers
+                this.visualizers.forEach(v => {
+                    v.colorTheme = { primary, secondary };
+                });
+            });
+        });
     }
 
     async handleFileSelect(event) {
@@ -175,19 +290,20 @@ class AudioVisualizerApp {
     switchMode(index) {
         if (index < 0 || index >= this.visualizers.length) return;
 
-        console.log(`Switching to mode: ${index} (${this.visualizers[index].getName()})`);
+        const viz = this.visualizers[index];
+        console.log(`Switching to mode: ${index} (${viz.getName()})`);
         this.currentModeIndex = index;
 
         // Update UI
         this.elements.modeBtns.forEach((btn, i) => {
-            if (i === index) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
+            btn.classList.toggle('active', i === index);
         });
 
-        this.showToast(`Görsel: ${this.visualizers[index].getName()}`);
+        if (this.elements.currentMode) {
+            this.elements.currentMode.innerText = viz.getName();
+        }
+
+        this.showToast(`Görsel: ${viz.getName()}`);
     }
 
     resizeCanvas() {
@@ -201,8 +317,19 @@ class AudioVisualizerApp {
 
     animate(time) {
         if (!this.lastTime) this.lastTime = time;
-        const dt = (time - this.lastTime) / 1000 || 0.016;
+        const dt = (time - this.lastTime) / 1000 || 0.008; // Base on ~120fps if possible
         this.lastTime = time;
+
+        // FPS Calculation
+        this.frameCount++;
+        if (time > this.fpsUpdateTime + 1000) {
+            const currentFps = Math.round((this.frameCount * 1000) / (time - this.fpsUpdateTime));
+            if (this.elements.fpsCounter) {
+                this.elements.fpsCounter.innerText = `${currentFps} FPS`;
+            }
+            this.fpsUpdateTime = time;
+            this.frameCount = 0;
+        }
 
         let analysis;
         if (this.isMidiMode && this.isPlaying) {
