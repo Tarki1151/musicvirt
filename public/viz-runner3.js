@@ -146,7 +146,7 @@ export class RoadRunner3 extends Visualizer {
         const playheadX = width * this.playheadX;
         const pixelsPerSecond = 200;
 
-        const currentTime = analysis.currentTime || 0;
+        const currentTime = (this.analysis && this.analysis.currentTime) || 0;
 
         // Background
         ctx.fillStyle = '#0a0a12';
