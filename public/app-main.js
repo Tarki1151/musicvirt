@@ -320,15 +320,31 @@ class AudioVisualizerApp {
         }
     }
 
-    startPlayback() {
+    async startPlayback() {
+        // Try to resume context first
+        if (this.analyzer) await this.analyzer.resume();
+
         if (this.isMidiMode) {
-            this.midiEngine.play();
+            await this.midiEngine.play(0);
         } else {
-            if (this.analyzer.play) this.analyzer.play();
+            if (this.analyzer.play) await this.analyzer.play();
         }
-        this.isPlaying = true;
-        this.updatePlayBtnState();
-        this.showToast('Oynatılıyor');
+
+        // Re-check if it actually started (browsers might block auto-play after drop)
+        const isActuallyPlaying = this.isMidiMode ?
+            (Tone.context.state === 'running') :
+            (this.analyzer.audioContext && this.analyzer.audioContext.state === 'running');
+
+        if (isActuallyPlaying) {
+            this.isPlaying = true;
+            this.updatePlayBtnState();
+            this.showToast('Oynatılıyor');
+        } else {
+            this.isPlaying = false;
+            this.updatePlayBtnState();
+            this.showToast('Oynatmak için Play\'e basın');
+            console.warn('⚠️ App: Autoplay blocked. Waiting for user gesture.');
+        }
     }
 
     async togglePlayback() {

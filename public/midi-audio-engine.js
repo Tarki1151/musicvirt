@@ -144,14 +144,25 @@ export class MidiEngine {
     }
 
     async play(fromTime = 0) {
+        console.log(`🔊 MidiEngine: Attempting playback from ${fromTime.toFixed(2)}s. State: ${Tone.context.state}`);
+
+        // Satisfy browser autoplay policies
         await Tone.start();
-        if (this.context && this.context.state !== 'running') await this.context.resume();
+        if (this.context && this.context.resume) {
+            await this.context.resume();
+        }
 
-        console.log(`🔊 MidiEngine: Starting playback from ${fromTime.toFixed(2)}s`);
+        if (Tone.context.state !== 'running') {
+            console.warn('⚠️ MidiEngine: AudioContext is still suspended! Click play button again.');
+            // Only proceed if context is running or we'll get Tone.js warnings
+            if (fromTime === 0) return; // Don't try to auto-play if suspended
+        }
 
+        this.isPlaying = true;
         Tone.Transport.seconds = fromTime;
         Tone.Transport.start();
-        this.isPlaying = true;
+
+        console.log(`▶️ MidiEngine: Playback started. Transport Time: ${Tone.Transport.seconds.toFixed(2)}`);
     }
 
     pause() {
