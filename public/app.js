@@ -320,8 +320,9 @@ class AudioVisualizerApp {
                 await this.hqMidiPlayer.init();
                 const result = await this.hqMidiPlayer.loadMidi(file);
 
-                // Store midi data for visualization
+                // Store midi data for visualization and process notes
                 this.midiHandler.midi = result.midi;
+                this.midiHandler.processNotes(); // Process notes for getAnalysis()
 
                 if (this.elements.trackTime) {
                     this.elements.trackTime.innerText = `0:00 / ${this.formatTime(result.duration)}`;
