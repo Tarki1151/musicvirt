@@ -139,25 +139,48 @@ export class Runner2 extends Visualizer {
         }
     }
 
-    getChannelColor(channel, note) {
-        const handler = window.app && window.app.midiHandler;
-        const totalTracks = (handler && handler.midi && handler.midi.tracks.filter(t => t.notes.length > 0).length) || 1;
+    /**
+     * Smart color system:
+     * - Single instrument: Each note gets a different rainbow color
+     * - Multiple instruments: Each instrument has its own hue, notes vary in shade
+     */
+    getChannelColor(channel, noteNumber = null) {
+        const uniqueChannels = this.getUniqueChannels();
+        const isSingleInstrument = uniqueChannels.length <= 1;
 
-        // Hue determined by channel, unless single instrument mode
-        let hue;
-        if (totalTracks === 1) {
-            hue = (note * 137.5) % 360; // Every note is unique color
+        if (isSingleInstrument && noteNumber !== null) {
+            // Single instrument mode: Rainbow colors based on note
+            // Map MIDI note (21-108) to hue (0-360)
+            const normalizedNote = (noteNumber - this.minNote) / (this.maxNote - this.minNote);
+            const hue = normalizedNote * 300; // Use 300 degrees for a nice rainbow spread
+            return `hsl(${hue}, 85%, 60%)`;
         } else {
-            hue = (channel * 137.5) % 360; // Every channel is unique color
+            // Multiple instruments mode: Each channel gets base hue, notes vary shade
+            const channelIndex = uniqueChannels.indexOf(channel);
+            const baseHue = (channelIndex * 137.5) % 360; // Golden angle for good distribution
+
+            if (noteNumber !== null) {
+                // Vary lightness based on note pitch
+                const normalizedNote = (noteNumber - this.minNote) / (this.maxNote - this.minNote);
+                const lightness = 40 + (normalizedNote * 30); // Range: 40% to 70%
+                const saturation = 70 + (normalizedNote * 15); // Range: 70% to 85%
+                return `hsl(${baseHue}, ${saturation}%, ${lightness}%)`;
+            }
+
+            return `hsl(${baseHue}, 80%, 60%)`;
         }
+    }
 
-        // Shading based on note pitch (Octave 0 to 8)
-        // Higher notes = Lighter, Lower notes = Darker
-        const pitchNorm = (note - 21) / 87; // 0 to 1
-        const lightness = 45 + (pitchNorm * 35); // 45% to 80%
-        const saturation = 70 + (pitchNorm * 20); // 70% to 90%
+    /**
+     * Get unique channels from current MIDI data
+     */
+    getUniqueChannels() {
+        const handler = window.app && window.app.midiHandler;
+        if (!handler || !handler.notes) return [];
 
-        return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+        const channels = new Set();
+        handler.notes.forEach(note => channels.add(note.channel));
+        return Array.from(channels).sort((a, b) => a - b);
     }
 
     render() {

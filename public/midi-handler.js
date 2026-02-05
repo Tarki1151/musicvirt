@@ -28,19 +28,44 @@ export class MidiHandler {
         this.filter = null;
         this.compressor = null;
         this.output = null;
+
+        // Performance settings
+        this.performanceMode = true; // Enable lightweight mode for complex MIDI
+        this.maxPolyphony = 64; // Limit simultaneous voices
     }
 
-    // High Quality Sample Mapping
+    // High Quality Sample Mapping - Extended for full GM support
     static GM_TO_SAMPLE = {
-        0: 'piano', 1: 'piano', 2: 'piano', 3: 'piano', 4: 'piano', 5: 'piano', 6: 'piano', 7: 'piano',
-        8: 'piano', 11: 'xylophone', 12: 'xylophone', 13: 'xylophone',
-        24: 'guitar-nylon', 25: 'guitar-acoustic', 26: 'guitar-electric', 27: 'guitar-electric',
-        32: 'bass-electric', 33: 'bass-electric', 34: 'bass-electric',
-        40: 'violin', 41: 'violin', 42: 'cello', 43: 'contrabass',
-        48: 'violin', 49: 'cello', 50: 'cello', 51: 'cello',
-        56: 'trumpet', 57: 'trombone', 58: 'tuba', 60: 'french-horn', 61: 'trumpet',
-        68: 'oboe', 70: 'bassoon', 71: 'clarinet', 73: 'flute',
-        104: 'harp', 114: 'xylophone'
+        // Pianos (0-7)
+        0: 'piano', 1: 'piano', 2: 'piano', 3: 'piano', 4: 'piano', 5: 'piano', 6: 'harpsichord', 7: 'piano',
+        // Chromatic Percussion (8-15)
+        8: 'celesta', 9: 'glockenspiel', 10: 'piano', 11: 'xylophone', 12: 'xylophone', 13: 'xylophone', 14: 'piano', 15: 'piano',
+        // Organ (16-23)
+        16: 'church_organ', 17: 'percussive_organ', 18: 'piano', 19: 'church_organ', 20: 'piano', 21: 'piano', 22: 'piano', 23: 'piano',
+        // Guitar (24-31)
+        24: 'guitar-nylon', 25: 'guitar-acoustic', 26: 'guitar-electric', 27: 'guitar-electric', 28: 'guitar-electric', 29: 'guitar-electric', 30: 'guitar-electric', 31: 'guitar-electric',
+        // Bass (32-39)
+        32: 'bass-electric', 33: 'bass-electric', 34: 'bass-electric', 35: 'bass-electric', 36: 'bass-electric', 37: 'bass-electric', 38: 'bass-electric', 39: 'bass-electric',
+        // Strings (40-47)
+        40: 'violin', 41: 'violin', 42: 'cello', 43: 'contrabass', 44: 'tremolo_strings', 45: 'pizzicato_strings', 46: 'harp', 47: 'timpani',
+        // String Ensembles (48-55)
+        48: 'string_ensemble_1', 49: 'string_ensemble_2', 50: 'synth_strings_1', 51: 'synth_strings_2', 52: 'choir_aahs', 53: 'choir_aahs', 54: 'choir_aahs', 55: 'piano',
+        // Brass (56-63)
+        56: 'trumpet', 57: 'trombone', 58: 'tuba', 59: 'trumpet', 60: 'french-horn', 61: 'brass_section', 62: 'synth_brass_2', 63: 'synth_brass_2',
+        // Reed (64-71)
+        64: 'oboe', 65: 'oboe', 66: 'oboe', 67: 'oboe', 68: 'oboe', 69: 'oboe', 70: 'bassoon', 71: 'clarinet',
+        // Pipe (72-79)
+        72: 'piccolo', 73: 'flute', 74: 'recorder', 75: 'flute', 76: 'flute', 77: 'flute', 78: 'ocarina', 79: 'ocarina',
+        // Synth Lead (80-87)
+        80: 'lead_1_square', 81: 'lead_2_sawtooth', 82: 'piano', 83: 'piano', 84: 'piano', 85: 'piano', 86: 'piano', 87: 'piano',
+        // Synth Pad (88-95)
+        88: 'piano', 89: 'piano', 90: 'piano', 91: 'piano', 92: 'piano', 93: 'piano', 94: 'piano', 95: 'piano',
+        // Synth FX (96-103)
+        96: 'fx_1_rain', 97: 'piano', 98: 'fx_3_crystal', 99: 'piano', 100: 'piano', 101: 'piano', 102: 'piano', 103: 'piano',
+        // Ethnic (104-111)
+        104: 'sitar', 105: 'piano', 106: 'piano', 107: 'piano', 108: 'piano', 109: 'piano', 110: 'violin', 111: 'piano',
+        // Percussive (112-119)
+        112: 'glockenspiel', 113: 'piano', 114: 'xylophone', 115: 'piano', 116: 'timpani', 117: 'timpani', 118: 'piano', 119: 'piano'
     };
 
     static NOTES = ['A0', 'C1', 'Ds1', 'Fs1', 'A1', 'C2', 'Ds2', 'Fs2', 'A2', 'C3', 'Ds3', 'Fs3', 'A3', 'C4', 'Ds4', 'Fs4', 'A4', 'C5', 'Ds5', 'Fs5', 'A5', 'C6', 'Ds6', 'Fs6', 'A6', 'C7', 'Ds7', 'Fs7', 'A7'];
@@ -53,7 +78,7 @@ export class MidiHandler {
     };
 
     async init(sharedContext) {
-        console.log('🎵 Audio: Initializing Engine...');
+        console.log('🎵 Audio: Initializing High-Quality Engine...');
         if (this.reverb) {
             console.log('ℹ️ Audio: Engine already initialized.');
             return;
@@ -64,30 +89,65 @@ export class MidiHandler {
             await Tone.setContext(sharedContext);
             this.audioContext = sharedContext;
         } else {
-            console.log('🚀 Audio: Starting new Tone context...');
+            // Create optimized audio context for smooth multi-channel playback
+            console.log('🚀 Audio: Creating optimized audio context...');
+
+            // Use larger buffer for stability with complex MIDI
+            const context = new AudioContext({
+                latencyHint: 'playback',  // Optimize for smooth playback over low latency
+                sampleRate: 44100
+            });
+
+            await Tone.setContext(context);
+            this.audioContext = context;
             await Tone.start();
-            this.audioContext = Tone.context.rawContext;
+
+            console.log(`📊 Audio: Context created - Sample Rate: ${context.sampleRate}Hz, Base Latency: ${(context.baseLatency * 1000).toFixed(1)}ms`);
         }
         console.log('📊 Audio: Context State:', Tone.context.state);
 
-        // Initialize output node within the Correct Context
-        this.output = new Tone.Gain(1.2);
+        // Increase Tone.js lookahead for better scheduling precision
+        Tone.context.lookAhead = 0.1; // 100ms lookahead for smooth playback
 
-        // Setup Mastering Chain within the active context
-        this.limiter = new Tone.Limiter(-1).toDestination();
-        this.compressor = new Tone.Compressor({ threshold: -18, ratio: 4 }).connect(this.limiter);
-        this.eq = new Tone.EQ3({ low: 3, mid: 0, high: -3 }).connect(this.compressor);
-        this.filter = new Tone.Filter(12000, "lowpass").connect(this.eq);
+        // Initialize output with proper gain staging
+        this.output = new Tone.Gain(0.8); // Slight headroom to prevent clipping
 
-        this.reverb = new Tone.Reverb({ decay: 4, wet: 0.35 }).connect(this.filter);
+        // HIGH QUALITY Mastering Chain
+        this.limiter = new Tone.Limiter(-0.5).toDestination();
+        this.compressor = new Tone.Compressor({
+            threshold: -15,
+            ratio: 4,
+            attack: 0.003,
+            release: 0.25,
+            knee: 6
+        }).connect(this.limiter);
+
+        this.eq = new Tone.EQ3({ low: 2, mid: 0, high: -2 }).connect(this.compressor);
+
+        this.filter = new Tone.Filter({
+            frequency: 18000,
+            type: "lowpass",
+            rolloff: -12
+        }).connect(this.eq);
+
+        this.reverb = new Tone.Reverb({
+            decay: 3,
+            wet: 0.25,
+            preDelay: 0.01
+        }).connect(this.filter);
         await this.reverb.ready;
 
-        this.chorus = new Tone.Chorus(4, 2.5, 0.5).connect(this.reverb);
-        this.chorus.wet.value = 0.1;
+        this.chorus = new Tone.Chorus({
+            frequency: 1.5,
+            delayTime: 3.5,
+            depth: 0.3,
+            wet: 0.15
+        }).connect(this.reverb);
+        await this.chorus.start();
 
-        // Route our permanent output through the new effects chain
+        // Route output through full effects chain
         this.output.connect(this.chorus);
-        console.log('🛣️ Audio: Signal chain connected (Output -> Chorus -> Reverb -> Filter -> EQ -> Compressor -> Limiter -> Destination)');
+        console.log('🎛️ Audio: Full HQ effects chain: Output → Chorus → Reverb → Filter → EQ → Compressor → Limiter → Destination');
 
         // Re-connect any already loaded samplers
         const samplerCount = Object.keys(this.samplers).length;
@@ -162,62 +222,75 @@ export class MidiHandler {
 
     async loadInstruments() {
         console.log('🎻 Audio: Detecting instruments...');
+
+        // OPTIMIZATION: Share samplers between tracks using the same instrument library
+        // This dramatically reduces CPU load for multi-track MIDI files
+        const sharedSamplers = {}; // lib -> Sampler instance
+        const trackToLib = {}; // trackIndex -> lib name
         const promises = [];
+
+        // First pass: Identify unique instruments needed
+        const uniqueLibs = new Set();
         this.midi.tracks.forEach((track, index) => {
             if (track.notes.length === 0 || track.channel === 9) return;
 
             const prg = track.instrument ? track.instrument.number : 0;
-            const instName = track.instrument ? track.instrument.name : 'Unknown';
             let lib = MidiHandler.GM_TO_SAMPLE[prg] || 'piano';
 
             // Check manifest for availability, fallback to piano if missing
             if (!this.sampleManifest || !this.sampleManifest[lib] || this.sampleManifest[lib].length === 0) {
-                console.warn(`⚠️ Track ${index}: [${lib.toUpperCase()}] samples not found. Falling back to PIANO.`);
                 lib = 'piano';
             }
 
-            console.log(`🎹 Track ${index}: "${instName}" (Prog: ${prg}) -> Mapping to Library: [${lib.toUpperCase()}]`);
+            trackToLib[index] = lib;
+            uniqueLibs.add(lib);
+        });
 
-            const samples = {};
+        console.log(`⚡ Audio: ${uniqueLibs.size} unique instruments for ${Object.keys(trackToLib).length} tracks (sampler sharing enabled)`);
+
+        // Second pass: Create one sampler per unique instrument
+        for (const lib of uniqueLibs) {
             const availableFiles = this.sampleManifest ? this.sampleManifest[lib] : [];
 
             if (availableFiles.length === 0) {
-                console.error(`❌ Track ${index}: No samples available for [${lib.toUpperCase()}]. Track will be silent.`);
-                return;
+                console.error(`❌ No samples for [${lib.toUpperCase()}]`);
+                continue;
             }
 
-            // Map filenames to Tone.js scientific notation
+            // Build sample map (supports both .ogg and .mp3 formats)
+            const samples = {};
             availableFiles.forEach(fileName => {
-                const noteName = fileName.replace('.mp3', '')
-                    .replace('Ds', 'D#')
-                    .replace('Fs', 'F#')
-                    .replace('As', 'A#')
-                    .replace('Gs', 'G#')
-                    .replace('Cs', 'C#');
+                // Support both OGG and MP3 formats
+                let noteName = fileName.replace('.ogg', '').replace('.mp3', '');
+                noteName = noteName
+                    .replace(/Ds(\d)/g, 'D#$1')
+                    .replace(/Fs(\d)/g, 'F#$1')
+                    .replace(/As(\d)/g, 'A#$1')
+                    .replace(/Gs(\d)/g, 'G#$1')
+                    .replace(/Cs(\d)/g, 'C#$1');
                 samples[noteName] = fileName;
             });
 
-            console.log(`📥 Track ${index}: Loading ${Object.keys(samples).length} samples for [${lib.toUpperCase()}]`);
+            console.log(`📥 Loading [${lib.toUpperCase()}] with ${Object.keys(samples).length} samples`);
 
             const sampler = new Tone.Sampler({
                 urls: samples,
                 baseUrl: `./samples/${lib}/`,
-                attack: 0.1,
-                release: 1.2,
-                curve: "exponential",
+                attack: 0.005,   // Very fast attack for precise timing
+                release: 1.5,   // Natural release for full instrument decay
+                curve: "exponential",  // Natural volume curve
+                volume: -6,     // Headroom to prevent clipping with multiple instruments
                 onload: () => {
-                    console.log(`✅ Track ${index}: [${lib.toUpperCase()}] ready.`);
+                    console.log(`✅ [${lib.toUpperCase()}] ready`);
                 },
                 onerror: (err) => {
-                    console.error(`❌ Track ${index}: Failed to decode [${lib.toUpperCase()}].`, err);
+                    console.error(`❌ Failed to load [${lib.toUpperCase()}]:`, err);
                 }
             });
 
-            // Connect if initialized, otherwise wait
             if (this.output) sampler.connect(this.output);
+            sharedSamplers[lib] = sampler;
 
-            this.samplers[index] = sampler;
-            // Native way to wait for a Sampler to be ready
             promises.push(new Promise(resolve => {
                 const checkLoaded = () => {
                     if (sampler.loaded) resolve();
@@ -225,10 +298,21 @@ export class MidiHandler {
                 };
                 checkLoaded();
             }));
+        }
+
+        // Third pass: Map each track to its shared sampler
+        Object.entries(trackToLib).forEach(([trackIndex, lib]) => {
+            if (sharedSamplers[lib]) {
+                this.samplers[trackIndex] = sharedSamplers[lib];
+            }
         });
 
-        // Progressive loading: Wait for first few to start, others load in background
-        await Promise.all(promises.slice(0, 3));
+        // Wait for ALL shared samplers to load
+        if (promises.length > 0) {
+            console.log(`⏳ Audio: Loading ${promises.length} shared samplers...`);
+            await Promise.all(promises);
+            console.log(`✅ Audio: All samplers ready!`);
+        }
     }
 
     async play(startTime = 0) {
@@ -239,14 +323,38 @@ export class MidiHandler {
             return;
         }
 
+        // Ensure audio context is running
         await Tone.start();
-        console.log('🔊 Audio: Context State After Play:', Tone.context.state);
+        if (Tone.context.state !== 'running') {
+            console.warn('⚠️ AudioContext not running, attempting resume...');
+            await Tone.context.resume();
+        }
+        console.log('🔊 Audio: Context State:', Tone.context.state);
 
         this.isPlaying = true;
         this.pauseTime = startTime;
         this.startTime = Tone.now() - startTime;
+
+        // Reset Transport completely
+        Tone.Transport.stop();
+        Tone.Transport.cancel();
+        Tone.Transport.position = 0;
+        Tone.Transport.seconds = 0;
+
+        // Schedule all notes
         this.scheduleAllNotes(startTime);
+
+        // Start Transport - this is critical!
         Tone.Transport.start();
+        console.log('🚀 Transport started, position:', Tone.Transport.position);
+
+        // Keepalive: Prevent browser from suspending audio context
+        this._keepAliveInterval = setInterval(() => {
+            if (this.isPlaying && Tone.context.state === 'suspended') {
+                console.warn('⚠️ AudioContext suspended, resuming...');
+                Tone.context.resume();
+            }
+        }, 1000);
     }
 
     pause() {
@@ -295,6 +403,13 @@ export class MidiHandler {
 
     stop() {
         this.isPlaying = false;
+
+        // Clear keepalive interval
+        if (this._keepAliveInterval) {
+            clearInterval(this._keepAliveInterval);
+            this._keepAliveInterval = null;
+        }
+
         Tone.Transport.stop();
         Tone.Transport.cancel();
         this.scheduledEvents = [];

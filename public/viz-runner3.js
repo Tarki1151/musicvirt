@@ -41,6 +41,10 @@ export class RoadRunner3 extends Visualizer {
         this.showMidiWarning = false;
         this.showTrails = true; // Comet tail toggle
 
+        // Piano range for color mapping
+        this.minNote = 21; // A0
+        this.maxNote = 108; // C8
+
         this.initTracks(2);
     }
 
@@ -134,6 +138,48 @@ export class RoadRunner3 extends Visualizer {
         }
     }
 
+    /**
+     * Smart color system:
+     * - Single instrument: Each note gets a different rainbow color
+     * - Multiple instruments: Each instrument has its own hue, notes vary in shade
+     */
+    getNoteColor(channelIndex, noteNumber, alpha = 1) {
+        const isSingleInstrument = this.tracks.length <= 1;
+
+        if (isSingleInstrument && noteNumber !== null) {
+            // Single instrument mode: Rainbow colors based on note
+            const normalizedNote = (noteNumber - this.minNote) / (this.maxNote - this.minNote);
+            const hue = normalizedNote * 300; // 0-300 degrees for rainbow
+            return `hsla(${hue}, 85%, 60%, ${alpha})`;
+        } else {
+            // Multiple instruments mode: Each channel gets base hue, notes vary shade
+            const baseHue = (channelIndex * 137.5) % 360; // Golden angle
+
+            if (noteNumber !== null) {
+                const normalizedNote = (noteNumber - this.minNote) / (this.maxNote - this.minNote);
+                const lightness = 40 + (normalizedNote * 30); // 40% to 70%
+                const saturation = 70 + (normalizedNote * 15); // 70% to 85%
+                return `hsla(${baseHue}, ${saturation}%, ${lightness}%, ${alpha})`;
+            }
+
+            return `hsla(${baseHue}, 80%, 60%, ${alpha})`;
+        }
+    }
+
+    /**
+     * Get base color for a track (for clefs, labels, etc.)
+     */
+    getTrackBaseColor(channelIndex) {
+        const isSingleInstrument = this.tracks.length <= 1;
+
+        if (isSingleInstrument) {
+            return 'hsl(280, 80%, 65%)'; // Purple for single track
+        } else {
+            const baseHue = (channelIndex * 137.5) % 360;
+            return `hsl(${baseHue}, 80%, 60%)`;
+        }
+    }
+
     render() {
         const ctx = this.ctx;
         if (!ctx) return;
@@ -164,10 +210,9 @@ export class RoadRunner3 extends Visualizer {
         ctx.fillStyle = '#0a0a12';
         ctx.fillRect(0, 0, width, this.height);
 
-        this.tracks.forEach((track) => {
+        this.tracks.forEach((track, trackIndex) => {
             const baseY = track.baseY;
-            const [r, g, b] = track.color;
-            const colorStr = this.rgbString(r, g, b, 1);
+            const trackBaseColor = this.getTrackBaseColor(trackIndex);
 
             // Draw Staff Lines
             const lineSpacing = Math.max(4, this.staffSpacing * 0.08);
@@ -182,7 +227,7 @@ export class RoadRunner3 extends Visualizer {
             }
 
             // Clef Symbol
-            ctx.fillStyle = colorStr;
+            ctx.fillStyle = trackBaseColor;
             ctx.font = `${this.noteSize * 1.8}px serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -195,6 +240,7 @@ export class RoadRunner3 extends Visualizer {
 
             // Draw Notes
             track.nodes.forEach(note => {
+                const noteColor = this.getNoteColor(trackIndex, note.pitch);
                 const age = note.time - currentTime; // Crucial: age decreases as time increases
                 const x = playheadX + (age * pixelsPerSecond);
 
@@ -222,7 +268,7 @@ export class RoadRunner3 extends Visualizer {
                     const tailLength = Math.min(note.duration * pixelsPerSecond, (currentTime - note.time) * pixelsPerSecond);
                     if (tailLength > 0) {
                         const gradient = ctx.createLinearGradient(x, y, x + tailLength, y);
-                        gradient.addColorStop(0, colorStr);
+                        gradient.addColorStop(0, noteColor);
                         gradient.addColorStop(1, 'transparent');
                         ctx.beginPath();
                         ctx.strokeStyle = gradient;
@@ -239,12 +285,12 @@ export class RoadRunner3 extends Visualizer {
 
                 if (note.active) {
                     ctx.shadowBlur = 20 * scale;
-                    ctx.shadowColor = colorStr;
+                    ctx.shadowColor = noteColor;
                     ctx.fillStyle = '#fff';
                     ctx.font = `${currentNoteSize * 1.2}px serif`;
                 } else {
                     ctx.globalAlpha = Math.max(0.1, 1 - (dist / 5.0));
-                    ctx.fillStyle = colorStr;
+                    ctx.fillStyle = noteColor;
                     ctx.font = `${currentNoteSize}px serif`;
                 }
 

@@ -1,5 +1,6 @@
 import { AudioAnalyzer } from './audio-analyzer.js';
 import { MidiHandler } from './midi-handler.js';
+import { HQMidiPlayer } from './midi-player-hq.js';
 import { Visualizers } from './visualizers.js';
 import { VideoExporter } from './video-exporter.js';
 
@@ -12,6 +13,8 @@ class AudioVisualizerApp {
         this.ctx = this.canvas.getContext('2d');
         this.analyzer = new AudioAnalyzer(2048);
         this.midiHandler = new MidiHandler();
+        this.hqMidiPlayer = new HQMidiPlayer(); // High quality MIDI player
+        this.useHQPlayer = true; // Toggle between old and new player
         this.visualizers = [];
         this.currentModeIndex = 0;
         this.isPlaying = false;
@@ -265,7 +268,10 @@ class AudioVisualizerApp {
         if (startBtn) {
             startBtn.addEventListener('click', async () => {
                 if (!this.videoExporter.isRecording) {
-                    const options = { ratio: ratioSelect.value, quality: qualitySelect.value };
+                    const options = {
+                        ratio: ratioSelect?.value || '16:9',
+                        quality: qualitySelect?.value || 'high'
+                    };
                     try {
                         await this.videoExporter.startRecording(options);
                         startBtn.innerHTML = '<span class="btn-icon">⏹️</span> Kaydı Durdur';
@@ -307,12 +313,29 @@ class AudioVisualizerApp {
         if (file.name.toLowerCase().endsWith('.mid') || file.name.toLowerCase().endsWith('.midi')) {
             console.log('🎹 App: MIDI format detected.');
             this.isMidiMode = true;
-            await this.analyzer.init();
-            await this.midiHandler.init(this.analyzer.audioContext);
-            const midi = await this.midiHandler.loadMidiFile(file);
-            console.log('✅ App: MIDI processing complete.');
-            if (this.elements.trackTime) {
-                this.elements.trackTime.innerText = `0:00 / ${this.formatTime(midi.duration)}`;
+
+            if (this.useHQPlayer) {
+                // Use new HQ MIDI Player (Magenta.js)
+                console.log('🎵 Using HQ MIDI Player (SGM+ SoundFont)...');
+                await this.hqMidiPlayer.init();
+                const result = await this.hqMidiPlayer.loadMidi(file);
+
+                // Store midi data for visualization
+                this.midiHandler.midi = result.midi;
+
+                if (this.elements.trackTime) {
+                    this.elements.trackTime.innerText = `0:00 / ${this.formatTime(result.duration)}`;
+                }
+                console.log('✅ App: HQ MIDI ready.');
+            } else {
+                // Fallback to old player
+                await this.analyzer.init();
+                await this.midiHandler.init(this.analyzer.audioContext);
+                const midi = await this.midiHandler.loadMidiFile(file);
+                if (this.elements.trackTime) {
+                    this.elements.trackTime.innerText = `0:00 / ${this.formatTime(midi.duration)}`;
+                }
+                console.log('✅ App: MIDI processing complete.');
             }
             this.startPlayback();
         } else {
@@ -327,7 +350,11 @@ class AudioVisualizerApp {
 
     startPlayback() {
         if (this.isMidiMode) {
-            this.midiHandler.play();
+            if (this.useHQPlayer) {
+                this.hqMidiPlayer.play();
+            } else {
+                this.midiHandler.play();
+            }
         } else {
             if (this.analyzer.play) this.analyzer.play();
         }
@@ -338,9 +365,17 @@ class AudioVisualizerApp {
 
     togglePlayback() {
         if (this.isPlaying) {
-            this.isMidiMode ? this.midiHandler.pause() : (this.analyzer.pause ? this.analyzer.pause() : null);
+            if (this.isMidiMode) {
+                this.useHQPlayer ? this.hqMidiPlayer.pause() : this.midiHandler.pause();
+            } else {
+                if (this.analyzer.pause) this.analyzer.pause();
+            }
         } else {
-            this.isMidiMode ? this.midiHandler.play(this.midiHandler.pauseTime) : (this.analyzer.play ? this.analyzer.play() : null);
+            if (this.isMidiMode) {
+                this.useHQPlayer ? this.hqMidiPlayer.resume() : this.midiHandler.play(this.midiHandler.pauseTime);
+            } else {
+                if (this.analyzer.play) this.analyzer.play();
+            }
         }
         this.isPlaying = !this.isPlaying;
         this.updatePlayBtnState();
@@ -394,7 +429,10 @@ class AudioVisualizerApp {
             this.fpsUpdateTime = time;
         }
 
-        const currentTime = this.isMidiMode ? this.midiHandler.getCurrentTime() : 0;
+        let currentTime = 0;
+        if (this.isMidiMode) {
+            currentTime = this.useHQPlayer ? this.hqMidiPlayer.getCurrentTime() : this.midiHandler.getCurrentTime();
+        }
         const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
         analysis.currentTime = currentTime;
 
