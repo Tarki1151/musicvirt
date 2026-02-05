@@ -113,6 +113,7 @@ class AudioVisualizerApp {
                 const vol = parseFloat(e.target.value);
                 this.analyzer.setVolume(vol);
                 if (this.midiHandler) this.midiHandler.setVolume(vol);
+                if (this.hqMidiPlayer) this.hqMidiPlayer.setVolume(vol);
             });
         }
 
@@ -151,6 +152,74 @@ class AudioVisualizerApp {
                 dz.classList.remove('dragover');
                 const file = e.dataTransfer.files[0];
                 if (file) this.processFile(file);
+            });
+        }
+
+        // Restart Button
+        const restartBtn = document.getElementById('restartBtn');
+        if (restartBtn) {
+            restartBtn.addEventListener('click', () => {
+                if (this.isMidiMode) {
+                    if (this.useHQPlayer) {
+                        this.hqMidiPlayer.stop();
+                        this.hqMidiPlayer.play(0);
+                    } else {
+                        this.midiHandler.stop();
+                        this.midiHandler.play(0);
+                    }
+                } else {
+                    if (this.analyzer.seek) this.analyzer.seek(0);
+                }
+                this.isPlaying = true;
+                this.updatePlayBtnState();
+                this.showToast('Baştan başlatıldı');
+            });
+        }
+
+        // Next Track Button
+        const nextBtn = document.getElementById('nextBtn');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                // Get list of files from the file input
+                const files = this.elements.fileInput?.files;
+                if (files && files.length > 1) {
+                    // Find current and play next
+                    const currentName = this.elements.trackName?.innerText;
+                    let nextIndex = 0;
+                    for (let i = 0; i < files.length; i++) {
+                        if (files[i].name.replace(/\.[^/.]+$/, "") === currentName) {
+                            nextIndex = (i + 1) % files.length;
+                            break;
+                        }
+                    }
+                    this.processFile(files[nextIndex]);
+                } else {
+                    this.showToast('Sırada başka parça yok');
+                }
+            });
+        }
+
+        // Progress Bar Seek
+        if (this.elements.progress) {
+            this.elements.progress.addEventListener('input', (e) => {
+                const percent = parseFloat(e.target.value) / 100;
+                let duration = 0;
+
+                if (this.isMidiMode) {
+                    duration = this.useHQPlayer ? this.hqMidiPlayer.getDuration() : this.midiHandler.midi?.duration || 0;
+                    const seekTime = percent * duration;
+
+                    if (this.useHQPlayer) {
+                        this.hqMidiPlayer.seek(seekTime);
+                    } else {
+                        this.midiHandler.stop();
+                        this.midiHandler.play(seekTime);
+                    }
+                } else {
+                    if (this.analyzer.duration && this.analyzer.seek) {
+                        this.analyzer.seek(percent * this.analyzer.duration);
+                    }
+                }
             });
         }
     }
@@ -431,11 +500,25 @@ class AudioVisualizerApp {
         }
 
         let currentTime = 0;
+        let duration = 0;
         if (this.isMidiMode) {
             currentTime = this.useHQPlayer ? this.hqMidiPlayer.getCurrentTime() : this.midiHandler.getCurrentTime();
+            duration = this.useHQPlayer ? this.hqMidiPlayer.getDuration() : (this.midiHandler.midi?.duration || 0);
         }
         const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
         analysis.currentTime = currentTime;
+
+        // Update progress bar and time display
+        if (this.isMidiMode && this.isPlaying && duration > 0) {
+            // Update progress bar
+            if (this.elements.progress) {
+                this.elements.progress.value = (currentTime / duration) * 100;
+            }
+            // Update time display
+            if (this.elements.trackTime) {
+                this.elements.trackTime.innerText = `${this.formatTime(currentTime)} / ${this.formatTime(duration)}`;
+            }
+        }
 
         if (this.frameCount % 180 === 0 && this.isMidiMode) {
             console.log(`⏱️ App Clock [MIDI]: ${currentTime.toFixed(3)}s`);

@@ -61,12 +61,38 @@ export class VideoExporter {
         // Create recording destination
         const dest = audioContext.createMediaStreamDestination();
 
-        // Connect Tone.js (MIDI)
+        // Connect Tone.js (MIDI) - Try multiple approaches
         try {
-            Tone.getDestination().connect(dest);
-            console.log('🔗 Export: Hooked Tone.js Output');
+            // Method 1: Direct Tone.getDestination (for old player)
+            if (typeof Tone !== 'undefined' && Tone.getDestination) {
+                Tone.getDestination().connect(dest);
+                console.log('🔗 Export: Hooked Tone.js Output');
+            }
         } catch (e) {
             console.warn('⚠️ Export: Tone.js hook failed:', e);
+        }
+
+        // Method 2: Connect via global Tone from Magenta (for HQ player)
+        try {
+            if (window.Tone && window.Tone.getDestination) {
+                window.Tone.getDestination().connect(dest);
+                console.log('🔗 Export: Hooked Global Tone.js (Magenta)');
+            }
+        } catch (e) {
+            console.warn('⚠️ Export: Global Tone hook failed:', e);
+        }
+
+        // Method 3: Connect HQ player's audio context destination
+        if (this.app.hqMidiPlayer && this.app.hqMidiPlayer.audioContext) {
+            try {
+                // Create a MediaStreamAudioDestinationNode for HQ player
+                const hqContext = this.app.hqMidiPlayer.audioContext;
+                if (hqContext === audioContext) {
+                    console.log('🔗 Export: HQ player shares same audio context');
+                }
+            } catch (e) {
+                console.warn('⚠️ Export: HQ player hook failed:', e);
+            }
         }
 
         // Connect Analyzer (Standard Audio)
