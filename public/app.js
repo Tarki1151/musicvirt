@@ -493,9 +493,7 @@ class AudioVisualizerApp {
             }
         }
 
-        if (this.frameCount % 180 === 0 && this.isMidiMode) {
-            console.log(`⏱️ App Clock [MIDI]: ${currentTime.toFixed(3)}s`);
-        }
+        // Debug log removed for performance
 
         // Central Background Clearing
         this.ctx.fillStyle = '#10111a';

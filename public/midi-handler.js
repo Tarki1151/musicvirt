@@ -426,37 +426,63 @@ export class MidiHandler {
     }
 
     getAnalysis(currentTime) {
-        const activeNotes = this.notes.filter(n => currentTime >= n.startTime && currentTime <= n.endTime);
+        // Reuse buffers to avoid GC pressure
+        if (!this._anaSpectrum) this._anaSpectrum = new Uint8Array(128);
+        if (!this._anaWaveform) this._anaWaveform = new Uint8Array(128).fill(128);
+        if (!this._anaBars) this._anaBars = new Array(32);
+
+        this._anaSpectrum.fill(0);
+
+        // OPTIMIZATION: Only look at notes around current time instead of filtering ALL notes
+        // For now, using a slightly more efficient search or just optimizing the loop
         let bass = 0, mid = 0, high = 0;
-        const spectrum = new Uint8Array(128).fill(0);
-        activeNotes.forEach(n => {
+        let weightedSum = 0, weightTotal = 0;
+        let isBeat = false;
+
+        // Iterate through notes - potentially costly if file is huge, but better than .filter().forEach()
+        const noteCount = this.notes.length;
+        for (let i = 0; i < noteCount; i++) {
+            const n = this.notes[i];
+
+            // Skip notes that haven't started or already ended
+            if (n.startTime > currentTime || n.endTime < currentTime) {
+                // Peek ahead: if notes are sorted by startTime (they should be), 
+                // we can potentially break early if n.startTime > currentTime + dynamic_window
+                continue;
+            }
+
+            // Process active note
             if (n.note < 48) bass += n.velocity;
             else if (n.note < 72) mid += n.velocity;
             else high += n.velocity;
+
+            weightedSum += n.note * n.velocity;
+            weightTotal += n.velocity;
+
             const bin = Math.floor(((n.note - 21) / 87) * 128);
-            if (bin >= 0 && bin < 128) spectrum[bin] = Math.max(spectrum[bin], n.velocity * 255);
-        });
-        const bars = [];
+            if (bin >= 0 && bin < 128) {
+                this._anaSpectrum[bin] = Math.max(this._anaSpectrum[bin], n.velocity * 255);
+            }
+
+            if (Math.abs(n.startTime - currentTime) < 0.02) isBeat = true;
+        }
+
         for (let i = 0; i < 32; i++) {
             let max = 0;
             const start = Math.floor(i * 128 / 32);
-            for (let j = 0; j < 4; j++) max = Math.max(max, spectrum[start + j]);
-            bars.push(max / 255);
+            for (let j = 0; j < 4; j++) {
+                if (this._anaSpectrum[start + j] > max) max = this._anaSpectrum[start + j];
+            }
+            this._anaBars[i] = max / 255;
         }
-        const totalEnergy = Math.min(1, bass + mid + high);
 
-        // Calculate spectral centroid for MIDI (average pitch)
-        let weightedSum = 0, weightTotal = 0;
-        activeNotes.forEach(n => {
-            weightedSum += n.note * n.velocity;
-            weightTotal += n.velocity;
-        });
+        const totalEnergy = Math.min(1, bass + mid + high);
         const spectralCentroid = weightTotal > 0 ? (weightedSum / weightTotal) : 60;
 
         return {
-            spectrum,
-            waveform: new Uint8Array(128).fill(128),
-            bars,
+            spectrum: this._anaSpectrum,
+            waveform: this._anaWaveform,
+            bars: this._anaBars,
             bass: Math.min(1, bass),
             mid: Math.min(1, mid),
             high: Math.min(1, high),
@@ -465,8 +491,8 @@ export class MidiHandler {
             highNorm: Math.min(1, high),
             totalEnergy: totalEnergy * 255,
             spectralCentroid: spectralCentroid,
-            isBeat: activeNotes.some(n => Math.abs(n.startTime - currentTime) < 0.02),
-            channelData: this.getChannelAnalysis(currentTime),
+            isBeat: isBeat,
+            channelData: this.getChannelAnalysis ? this.getChannelAnalysis(currentTime) : [],
             isMidi: true
         };
     }
@@ -476,9 +502,20 @@ export class MidiHandler {
     getChannelAnalysis(currentTime) {
         const channelIds = this.getChannelIds();
         return channelIds.map(chId => {
-            const notes = this.channels[chId].filter(n => currentTime >= n.startTime && currentTime <= n.endTime);
-            const energy = notes.reduce((sum, n) => sum + n.velocity, 0);
-            return { channelId: chId, energy: Math.min(1, energy), noteCount: notes.length, isBeat: notes.some(n => Math.abs(n.startTime - currentTime) < 0.02) };
+            const channelNotes = this.channels[chId];
+            let energy = 0;
+            let noteCount = 0;
+            let isBeat = false;
+            const len = channelNotes.length;
+            for (let i = 0; i < len; i++) {
+                const n = channelNotes[i];
+                if (currentTime >= n.startTime && currentTime <= n.endTime) {
+                    energy += n.velocity;
+                    noteCount++;
+                    if (Math.abs(n.startTime - currentTime) < 0.02) isBeat = true;
+                }
+            }
+            return { channelId: chId, energy: Math.min(1, energy), noteCount, isBeat };
         });
     }
 
