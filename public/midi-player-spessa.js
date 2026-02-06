@@ -44,7 +44,7 @@ class SpessaMidiPlayer {
 
         // Create main output gain for volume control and recording
         this.mainOutput = this.audioContext.createGain();
-        this.mainOutput.gain.value = this.masterVolume;
+        this.mainOutput.gain.value = 0.4; // Lower default volume to prevent clipping (distortion)
         this.mainOutput.connect(this.audioContext.destination);
 
         // Load SoundFont
@@ -64,9 +64,15 @@ class SpessaMidiPlayer {
 
         // Initialize SpessaSynth WorkletSynthesizer
         // Start with empty buffer and add explicitly
+        // Enable built-in Reverb and Chorus for better sound
         this.synth = new WorkletSynthesizer(
             this.audioContext,
-            new ArrayBuffer(0)
+            new ArrayBuffer(0),
+            {
+                initializeReverbProcessor: true,
+                initializeChorusProcessor: true,
+                enableEventSystem: true
+            }
         );
 
         // Wait for synth to be ready
