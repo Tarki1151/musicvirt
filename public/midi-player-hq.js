@@ -74,19 +74,29 @@ class HQMidiPlayer {
         // Wait for Magenta to load
         await this._loadMagenta();
 
-        // Create audio context
-        this.audioContext = new AudioContext({
-            latencyHint: 'playback',
-            sampleRate: 44100
-        });
+        // Initialize audio using Tone.js context
+        await Tone.start();
+        this.audioContext = Tone.context.rawContext;
+
+        // Resume if suspended
+        if (this.audioContext.state === 'suspended') {
+            await this.audioContext.resume();
+        }
+
+        // Simple output - no effects chain
+        this.mainOutput = new Tone.Gain(0.8).toDestination();
 
         console.log(`📊 AudioContext: ${this.audioContext.sampleRate}Hz, ${this.audioContext.state}`);
 
         // Initialize SoundFont player with SGM+ (high quality)
-        this.player = new core.SoundFontPlayer(SOUNDFONTS.sgm_plus, undefined, undefined, undefined, {
+        // Pass undefined for output to let Magenta handle routing
+        this.player = new core.SoundFontPlayer(SOUNDFONTS.sgm_plus);
+
+        // Set callback for note events
+        this.player.callbackObject = {
             run: (note) => this._onNote(note),
             stop: () => { }
-        });
+        };
 
         console.log('✅ HQ MIDI Player: Ready with SGM+ SoundFont');
         return this.audioContext;
@@ -252,15 +262,10 @@ class HQMidiPlayer {
 
     setVolume(value) {
         this.masterVolume = value;
-        // Magenta doesn't have a direct volume control
-        // We'll handle this via the audio context destination
-        if (this.audioContext?.destination) {
-            // Create gain node if needed
-            if (!this._gainNode) {
-                this._gainNode = this.audioContext.createGain();
-                this._gainNode.connect(this.audioContext.destination);
-            }
-            this._gainNode.gain.setValueAtTime(value, this.audioContext.currentTime);
+        // Control volume via main output gain
+        if (this.mainOutput && this.mainOutput.gain) {
+            // Tone.Gain uses .gain.value or .gain.rampTo
+            this.mainOutput.gain.rampTo(value, 0.1);
         }
     }
 

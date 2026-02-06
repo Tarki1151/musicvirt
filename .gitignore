@@ -27,6 +27,7 @@ public/*.midi
 public/*.mp3
 public/*.wav
 public/*.ogg
+public/soundfonts
 
 # IDE Files
 .vscode/

@@ -328,7 +328,7 @@ class AudioVisualizerApp {
                     };
                     try {
                         await this.videoExporter.startRecording(options);
-                        startBtn.innerHTML = '<span class="btn-icon">⏹️</span> Kaydı Durdur';
+                        // startBtn.innerHTML modification removed to preserve CSS animations
                         startBtn.classList.add('recording');
                         status.style.display = 'flex';
                     } catch (e) {
@@ -337,7 +337,7 @@ class AudioVisualizerApp {
                     }
                 } else {
                     this.videoExporter.stopRecording();
-                    startBtn.innerHTML = '<span class="btn-icon">⏺️</span> Kaydı Başlat';
+                    // startBtn.innerHTML modification removed to preserve CSS animations
                     startBtn.classList.remove('recording');
                     status.style.display = 'none';
                     this.showToast('Video Kaydedildi');
