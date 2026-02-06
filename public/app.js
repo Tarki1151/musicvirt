@@ -1,6 +1,6 @@
 import { AudioAnalyzer } from './audio-analyzer.js';
 import { MidiHandler } from './midi-handler.js';
-import { HQMidiPlayer } from './midi-player-hq.js';
+import { midiPlayerManager } from './midi-player-manager.js';
 import { Visualizers } from './visualizers.js';
 import { VideoExporter } from './video-exporter.js';
 
@@ -12,9 +12,8 @@ class AudioVisualizerApp {
         this.canvas = document.getElementById('visualizer');
         this.ctx = this.canvas.getContext('2d');
         this.analyzer = new AudioAnalyzer(2048);
-        this.midiHandler = new MidiHandler();
-        this.hqMidiPlayer = new HQMidiPlayer(); // High quality MIDI player
-        this.useHQPlayer = true; // Toggle between old and new player
+        this.midiHandler = new MidiHandler(); // For visualization data processing
+        this.midiPlayer = midiPlayerManager;  // Unified MIDI Player (handles all player types)
         this.visualizers = [];
         this.currentModeIndex = 0;
         this.isPlaying = false;
@@ -112,8 +111,7 @@ class AudioVisualizerApp {
             volSlider.addEventListener('input', (e) => {
                 const vol = parseFloat(e.target.value);
                 this.analyzer.setVolume(vol);
-                if (this.midiHandler) this.midiHandler.setVolume(vol);
-                if (this.hqMidiPlayer) this.hqMidiPlayer.setVolume(vol);
+                this.midiPlayer.setVolume(vol);
             });
         }
 
@@ -160,13 +158,8 @@ class AudioVisualizerApp {
         if (restartBtn) {
             restartBtn.addEventListener('click', () => {
                 if (this.isMidiMode) {
-                    if (this.useHQPlayer) {
-                        this.hqMidiPlayer.stop();
-                        this.hqMidiPlayer.play(0);
-                    } else {
-                        this.midiHandler.stop();
-                        this.midiHandler.play(0);
-                    }
+                    this.midiPlayer.stop();
+                    this.midiPlayer.play(0);
                 } else {
                     if (this.analyzer.seek) this.analyzer.seek(0);
                 }
@@ -203,18 +196,10 @@ class AudioVisualizerApp {
         if (this.elements.progress) {
             this.elements.progress.addEventListener('input', (e) => {
                 const percent = parseFloat(e.target.value) / 100;
-                let duration = 0;
 
                 if (this.isMidiMode) {
-                    duration = this.useHQPlayer ? this.hqMidiPlayer.getDuration() : this.midiHandler.midi?.duration || 0;
-                    const seekTime = percent * duration;
-
-                    if (this.useHQPlayer) {
-                        this.hqMidiPlayer.seek(seekTime);
-                    } else {
-                        this.midiHandler.stop();
-                        this.midiHandler.play(seekTime);
-                    }
+                    const duration = this.midiPlayer.getDuration();
+                    this.midiPlayer.seek(percent * duration);
                 } else {
                     if (this.analyzer.duration && this.analyzer.seek) {
                         this.analyzer.seek(percent * this.analyzer.duration);
@@ -383,30 +368,22 @@ class AudioVisualizerApp {
             console.log('🎹 App: MIDI format detected.');
             this.isMidiMode = true;
 
-            if (this.useHQPlayer) {
-                // Use new HQ MIDI Player (Magenta.js)
-                console.log('🎵 Using HQ MIDI Player (SGM+ SoundFont)...');
-                await this.hqMidiPlayer.init();
-                const result = await this.hqMidiPlayer.loadMidi(file);
+            // Use unified MIDI player
+            const playerInfo = this.midiPlayer.getPlayerInfo();
+            console.log(`🎵 Using ${playerInfo.name} player...`);
 
-                // Store midi data for visualization and process notes
-                this.midiHandler.midi = result.midi;
-                this.midiHandler.processNotes(); // Process notes for getAnalysis()
+            await this.midiPlayer.init();
+            const result = await this.midiPlayer.loadMidi(file);
 
-                if (this.elements.trackTime) {
-                    this.elements.trackTime.innerText = `0:00 / ${this.formatTime(result.duration)}`;
-                }
-                console.log('✅ App: HQ MIDI ready.');
-            } else {
-                // Fallback to old player
-                await this.analyzer.init();
-                await this.midiHandler.init(this.analyzer.audioContext);
-                const midi = await this.midiHandler.loadMidiFile(file);
-                if (this.elements.trackTime) {
-                    this.elements.trackTime.innerText = `0:00 / ${this.formatTime(midi.duration)}`;
-                }
-                console.log('✅ App: MIDI processing complete.');
+            // Store midi data for visualization
+            this.midiHandler.midi = result.midi;
+            this.midiHandler.processNotes(); // Process notes for getAnalysis()
+
+            if (this.elements.trackTime) {
+                this.elements.trackTime.innerText = `0:00 / ${this.formatTime(result.duration)}`;
             }
+            console.log(`✅ App: ${playerInfo.name} MIDI ready.`);
+
             this.startPlayback();
         } else {
             console.log('🎵 App: Standard audio format detected.');
@@ -420,11 +397,7 @@ class AudioVisualizerApp {
 
     startPlayback() {
         if (this.isMidiMode) {
-            if (this.useHQPlayer) {
-                this.hqMidiPlayer.play();
-            } else {
-                this.midiHandler.play();
-            }
+            this.midiPlayer.play();
         } else {
             if (this.analyzer.play) this.analyzer.play();
         }
@@ -436,13 +409,13 @@ class AudioVisualizerApp {
     togglePlayback() {
         if (this.isPlaying) {
             if (this.isMidiMode) {
-                this.useHQPlayer ? this.hqMidiPlayer.pause() : this.midiHandler.pause();
+                this.midiPlayer.pause();
             } else {
                 if (this.analyzer.pause) this.analyzer.pause();
             }
         } else {
             if (this.isMidiMode) {
-                this.useHQPlayer ? this.hqMidiPlayer.resume() : this.midiHandler.play(this.midiHandler.pauseTime);
+                this.midiPlayer.resume();
             } else {
                 if (this.analyzer.play) this.analyzer.play();
             }
@@ -502,8 +475,8 @@ class AudioVisualizerApp {
         let currentTime = 0;
         let duration = 0;
         if (this.isMidiMode) {
-            currentTime = this.useHQPlayer ? this.hqMidiPlayer.getCurrentTime() : this.midiHandler.getCurrentTime();
-            duration = this.useHQPlayer ? this.hqMidiPlayer.getDuration() : (this.midiHandler.midi?.duration || 0);
+            currentTime = this.midiPlayer.getCurrentTime();
+            duration = this.midiPlayer.getDuration();
         }
         const analysis = this.isMidiMode ? this.midiHandler.getAnalysis(currentTime) : this.analyzer.analyze();
         analysis.currentTime = currentTime;

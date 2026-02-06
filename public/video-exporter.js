@@ -52,9 +52,16 @@ export class VideoExporter {
         // Use 30fps for stability (especially on Mac/Chrome at high resolutions)
         const canvasStream = this.canvas.captureStream(30);
 
-        // Standardize Audio Context
-        const audioContext = this.app.analyzer.audioContext || Tone.context.rawContext;
-        if (audioContext.state === 'suspended') {
+        // Get audio context from unified MIDI player or analyzer
+        let audioContext;
+        if (this.app.isMidiMode && this.app.midiPlayer) {
+            audioContext = this.app.midiPlayer.getAudioContext();
+        }
+        if (!audioContext) {
+            audioContext = this.app.analyzer.audioContext || Tone.context.rawContext;
+        }
+
+        if (audioContext && audioContext.state === 'suspended') {
             await audioContext.resume();
         }
 
@@ -82,16 +89,17 @@ export class VideoExporter {
             console.warn('⚠️ Export: Global Tone hook failed:', e);
         }
 
-        // Method 3: Connect HQ player's audio context destination
-        if (this.app.hqMidiPlayer && this.app.hqMidiPlayer.audioContext) {
+        // Method 3: Connect unified MIDI player's main output
+        const mainOutput = this.app.midiPlayer?.getMainOutput();
+        if (mainOutput) {
             try {
-                // Create a MediaStreamAudioDestinationNode for HQ player
-                const hqContext = this.app.hqMidiPlayer.audioContext;
-                if (hqContext === audioContext) {
-                    console.log('🔗 Export: HQ player shares same audio context');
+                const playerContext = this.app.midiPlayer.getAudioContext();
+                if (playerContext === audioContext) {
+                    mainOutput.connect(dest);
+                    console.log('🔗 Export: Hooked MIDI Player Main Output');
                 }
             } catch (e) {
-                console.warn('⚠️ Export: HQ player hook failed:', e);
+                console.warn('⚠️ Export: MIDI Player hook failed:', e);
             }
         }
 
