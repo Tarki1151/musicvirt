@@ -68,8 +68,8 @@ class AudioVisualizerApp {
     initVisualizers() {
         const V = Visualizers;
         this.visualizers = [
-            new V.SpectrumAnalyzer(this.canvas),
-            new V.WaveformVisualizer(this.canvas),
+            new V.TheArchitect(this.canvas),
+            new V.TheCircuit(this.canvas),
             new V.ParticleSystem(this.canvas),
             new V.GeometricPatterns(this.canvas),
             new V.Landscape3D(this.canvas),

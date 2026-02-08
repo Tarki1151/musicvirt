@@ -73,8 +73,10 @@ class AudioVisualizerApp {
 
         try {
             this.visualizers = [
-                new V.SpectrumAnalyzer(this.canvas),
-                new V.WaveformVisualizer(this.canvas),
+                new V.TheMolecularGraph(this.canvas),
+                new V.TheCalligrapher(this.canvas),
+                new V.CalligraphyOrchestra(this.canvas),
+                new V.TheCircuit(this.canvas),
                 new V.ParticleSystem(this.canvas),
                 new V.GeometricPatterns(this.canvas),
                 new V.Landscape3D(this.canvas),
