@@ -2,8 +2,8 @@
  * Calligraphy Orchestra Visualizer
  * Multiple calligrapher pens - one per MIDI channel
  * ALL PENS SYNCHRONIZED on X axis - move together
- * All layers fit on screen (can overlap)
- * 5% transparency added per layer (top = 100% opaque)
+ * DYNAMIC DISTRIBUTION: Active channels share the available space
+ * When only 1 channel is active, it behaves like single Calligrapher
  */
 import { Visualizer } from './visualizer-base.js';
 
@@ -16,32 +16,37 @@ class CalligraphyPen {
         this.layerIndex = channelId;
 
         // Scale decreases by 10% per layer (0.9^index)
-        // Layer 0: 100%, Layer 1: 90%, Layer 2: 81%, etc.
         this.scale = Math.pow(0.9, this.layerIndex);
 
-        // Opacity: 5% less per layer
-        // Layer 0: 100%, Layer 1: 95%, Layer 2: 90%, Layer 3: 85%, etc.
-        this.opacity = 1 - (this.layerIndex * 0.05);
-        this.opacity = Math.max(0.45, this.opacity);
+        // Opacity: 10% less per layer
+        this.opacity = 1 - (this.layerIndex * 0.10);
+        this.opacity = Math.max(0.35, this.opacity);
 
-        // Pen Y state (X is controlled by parent)
+        // Pen Y state
         this.penY = 0;
         this.penVelY = 0;
         this.targetY = 0;
 
-        // Movement
+        // Zone (will be dynamically set)
+        this.zoneTop = 0;
+        this.zoneBottom = 0;
+        this.zoneCenter = 0;
+
+        // Movement - match single Calligrapher
         this.yResponsiveness = 0.08;
         this.curviness = 0.4;
 
-        // Stroke - scaled
-        this.minLineWidth = 2 * this.scale;
-        this.maxLineWidth = 14 * this.scale;
+        // Stroke - match single Calligrapher base values, then scale
+        this.baseMinLineWidth = 2;
+        this.baseMaxLineWidth = 14;
+        this.minLineWidth = this.baseMinLineWidth * this.scale;
+        this.maxLineWidth = this.baseMaxLineWidth * this.scale;
         this.currentWidth = 4 * this.scale;
         this.targetWidth = 4 * this.scale;
 
-        // Trail
+        // Trail - match single Calligrapher
         this.trailPoints = [];
-        this.maxTrailPoints = 70;
+        this.maxTrailPoints = 80;
 
         // Loop state
         this.isLooping = false;
@@ -50,8 +55,9 @@ class CalligraphyPen {
         this.loopCenterY = 0;
         this.loopRadius = 0;
         this.loopDirection = 1;
+        this.loopChance = 0.12;
 
-        // Color - each channel has unique hue
+        // Color
         this.hue = (channelId * 40 + 180) % 360;
         this.currentHue = this.hue;
 
@@ -60,38 +66,62 @@ class CalligraphyPen {
         this.activityLevel = 0;
         this.lastNoteTime = 0;
 
-        this.resize(width, height);
+        this.resize(width, height, totalChannels, channelId);
     }
 
-    resize(width, height) {
+    // Dynamic resize based on active channel count and position
+    resize(width, height, activeCount = 8, activeIndex = -1) {
         this.width = width;
         this.height = height;
 
-        // Base zone height is 1/3 of screen for layer 0
-        // Each layer is 10% smaller
-        const baseZoneHeight = height * 0.28;
-        const zoneHeight = baseZoneHeight * this.scale;
-
-        // Account for actual UI elements
-        const topMargin = 70;       // Top bar with mode selector
-        const bottomMargin = 130;   // Bottom player controls
+        // Margins for UI
+        const topMargin = 70;
+        const bottomMargin = 130;
         const availableHeight = height - topMargin - bottomMargin;
 
-        // Each layer gets an equal vertical slice of the available space
-        const sliceHeight = availableHeight / this.totalChannels;
+        // If this pen is not in the active list, use default positioning
+        if (activeIndex < 0) {
+            activeIndex = this.channelId;
+            activeCount = this.totalChannels;
+        }
 
-        // Center Y position for this layer - evenly distributed
-        const centerY = topMargin + sliceHeight * this.layerIndex + sliceHeight / 2;
+        // Scale based on how many channels are active
+        // 1 channel = full scale, 8 channels = normal layered scale
+        if (activeCount === 1) {
+            // Single channel mode - behave like single Calligrapher
+            this.scale = 1;
+            this.minLineWidth = this.baseMinLineWidth;
+            this.maxLineWidth = this.baseMaxLineWidth;
 
-        this.zoneTop = centerY - zoneHeight / 2;
-        this.zoneBottom = centerY + zoneHeight / 2;
-        this.zoneCenter = centerY;
+            // Use full available height
+            this.zoneTop = topMargin + 60;
+            this.zoneBottom = height - bottomMargin - 60;
+        } else {
+            // Multiple channels - scale by layer
+            this.scale = Math.pow(0.9, activeIndex);
+            this.minLineWidth = this.baseMinLineWidth * this.scale;
+            this.maxLineWidth = this.baseMaxLineWidth * this.scale;
 
-        this.penY = this.zoneCenter;
-        this.targetY = this.zoneCenter;
+            // Each active channel gets an equal vertical slice
+            const sliceHeight = availableHeight / activeCount;
+            const centerY = topMargin + sliceHeight * activeIndex + sliceHeight / 2;
+
+            // Zone height based on scale
+            const baseZoneHeight = sliceHeight * 0.9;
+            const zoneHeight = baseZoneHeight * this.scale;
+
+            this.zoneTop = centerY - zoneHeight / 2;
+            this.zoneBottom = centerY + zoneHeight / 2;
+        }
+
+        this.zoneCenter = (this.zoneTop + this.zoneBottom) / 2;
+
+        // Reset pen to center if not active
+        if (!this.isPenDown) {
+            this.penY = this.zoneCenter;
+            this.targetY = this.zoneCenter;
+        }
     }
-
-
 
     update(channelData, isBeat, time, dt) {
         if (!channelData || channelData.energy < 0.05) {
@@ -99,7 +129,7 @@ class CalligraphyPen {
             if (time - this.lastNoteTime > 0.5) {
                 this.isPenDown = false;
             }
-            this.targetY = this.lerp(this.targetY, this.zoneCenter, dt * 0.4);
+            this.targetY = this.lerp(this.targetY, this.zoneCenter, dt * 0.5);
         } else {
             this.isPenDown = true;
             this.lastNoteTime = time;
@@ -108,14 +138,14 @@ class CalligraphyPen {
             // Calculate target Y from pitch estimation
             const pitchEstimate = 40 + (channelData.channelId * 8) % 50;
             const normalized = (pitchEstimate - 30) / 60;
-            const zoneMargin = 12 * this.scale;
+            const zoneMargin = 40 * this.scale;
             this.targetY = this.zoneTop + zoneMargin + (1 - normalized) * (this.zoneBottom - this.zoneTop - zoneMargin * 2);
 
             // Width from energy
             this.targetWidth = this.minLineWidth + channelData.energy * (this.maxLineWidth - this.minLineWidth);
 
-            // Loop chance
-            if (isBeat && Math.random() < 0.1 && !this.isLooping) {
+            // Loop chance - same as single Calligrapher
+            if (isBeat && Math.random() < this.loopChance && !this.isLooping) {
                 this.startLoop();
             }
         }
@@ -128,7 +158,7 @@ class CalligraphyPen {
         this.loopProgress = 0;
         this.loopOffsetX = 0;
         this.loopCenterY = this.penY;
-        this.loopRadius = (8 + Math.random() * 15) * this.scale;
+        this.loopRadius = (15 + Math.random() * 25) * this.scale;
         this.loopDirection = Math.random() > 0.5 ? 1 : -1;
     }
 
@@ -149,21 +179,22 @@ class CalligraphyPen {
         } else {
             this.loopOffsetX = 0;
 
+            // Match single Calligrapher physics
             const yDiff = this.targetY - this.penY;
-            this.penVelY += yDiff * this.yResponsiveness * 55 * dt;
-            this.penVelY += Math.sin(time * 2.8 + this.channelId) * this.curviness * 35 * this.activityLevel * dt;
-            this.penVelY *= 0.9;
+            this.penVelY += yDiff * this.yResponsiveness * 60 * dt;
+            this.penVelY += Math.sin(time * 3 + this.channelId) * this.curviness * 45 * this.activityLevel * dt;
+            this.penVelY *= 0.91;
             this.penY += this.penVelY;
 
             // Clamp to zone
-            const margin = 6 * this.scale;
+            const margin = 20 * this.scale;
             if (this.penY < this.zoneTop + margin) {
                 this.penY = this.zoneTop + margin;
-                this.penVelY = Math.abs(this.penVelY) * 0.4;
+                this.penVelY = Math.abs(this.penVelY) * 0.5;
             }
             if (this.penY > this.zoneBottom - margin) {
                 this.penY = this.zoneBottom - margin;
-                this.penVelY = -Math.abs(this.penVelY) * 0.4;
+                this.penVelY = -Math.abs(this.penVelY) * 0.5;
             }
         }
     }
@@ -206,9 +237,9 @@ export class CalligraphyOrchestra extends Visualizer {
 
         this.maxPens = 8;
 
-        // SHARED X POSITION for all pens
+        // SHARED X POSITION
         this.sharedX = 80;
-        this.baseSpeed = 95;
+        this.baseSpeed = 150; // Faster flow
         this.activityLevel = 0;
 
         // Create pens for each channel
@@ -217,13 +248,18 @@ export class CalligraphyOrchestra extends Visualizer {
             this.pens.push(new CalligraphyPen(i, this.maxPens, canvas.width, canvas.height));
         }
 
+        // Track active channels for dynamic distribution
+        this.activeChannels = [];
+
         // Off-screen buffer
         this.offCanvas = null;
         this.offCtx = null;
 
-        // Scrolling
+        // Scrolling - same thresholds as single Calligrapher
         this.scrolling = false;
         this.scrollSpeed = 0;
+        this.targetScrollSpeed = 0;
+        this.maxScrollSpeed = 120;
 
         this.resize(canvas.width, canvas.height);
     }
@@ -239,8 +275,24 @@ export class CalligraphyOrchestra extends Visualizer {
             this.clearBuffer();
         }
 
-        for (const pen of this.pens) {
-            pen.resize(w, h);
+        this.updatePenZones();
+    }
+
+    updatePenZones() {
+        // Get list of active pens
+        const activeCount = Math.max(1, this.activeChannels.length);
+
+        for (let i = 0; i < this.pens.length; i++) {
+            const pen = this.pens[i];
+            const activeIndex = this.activeChannels.indexOf(i);
+
+            if (activeIndex >= 0) {
+                // This pen is active - give it a proper zone
+                pen.resize(this.width, this.height, activeCount, activeIndex);
+            } else {
+                // Not active - use default positioning
+                pen.resize(this.width, this.height, this.maxPens, i);
+            }
         }
     }
 
@@ -252,28 +304,41 @@ export class CalligraphyOrchestra extends Visualizer {
         this.sharedX = 80;
         this.scrolling = false;
         this.scrollSpeed = 0;
+        this.activeChannels = [];
     }
 
     update(analysis, dt) {
         super.update(analysis, dt);
 
         const channelMap = new Map();
-        let anyActive = false;
+        const newActiveChannels = [];
 
         if (analysis.channelData) {
             for (const ch of analysis.channelData) {
                 channelMap.set(ch.channelId, ch);
-                if (ch.energy > 0.05) anyActive = true;
+                if (ch.energy > 0.05) {
+                    newActiveChannels.push(ch.channelId);
+                }
             }
         }
 
-        if (anyActive) {
+        // Update active channels list and resize zones if changed
+        const activeChanged = newActiveChannels.length !== this.activeChannels.length ||
+            !newActiveChannels.every((ch, i) => ch === this.activeChannels[i]);
+
+        if (activeChanged) {
+            this.activeChannels = newActiveChannels.sort((a, b) => a - b);
+            this.updatePenZones();
+        }
+
+        // Activity level
+        if (this.activeChannels.length > 0) {
             this.activityLevel = Math.min(1, this.activityLevel + dt * 4);
         } else {
             this.activityLevel = Math.max(0, this.activityLevel - dt * 2);
         }
 
-        // Move SHARED X position
+        // Move SHARED X position - same speed as single Calligrapher
         const horizontalSpeed = this.baseSpeed * (0.7 + this.activityLevel * 0.5);
         this.sharedX += horizontalSpeed * dt;
 
@@ -286,35 +351,53 @@ export class CalligraphyOrchestra extends Visualizer {
             pen.addPoint(this.sharedX, this.time);
         }
 
+        // Scrolling - same logic as single Calligrapher
         this.updateScrolling(dt);
 
         if (this.scrolling && this.scrollSpeed > 0.1) {
-            const scrollAmount = this.scrollSpeed * dt;
-            this.applyScroll(scrollAmount);
+            this.applyScroll(dt);
         }
 
         this.drawStrokes();
     }
 
     updateScrolling(dt) {
-        const centerX = this.width * 0.5;
+        // Scroll starts when pen reaches right 1/3 of screen (66%)
+        const scrollThreshold = this.width * 0.66;
 
-        if (this.sharedX > centerX && !this.scrolling) {
+        if (this.sharedX > scrollThreshold && !this.scrolling) {
             this.scrolling = true;
         }
 
         if (this.scrolling) {
-            const targetSpeed = this.baseSpeed * (0.7 + this.activityLevel * 0.5);
-            this.scrollSpeed = this.lerp(this.scrollSpeed, targetSpeed, dt * 5);
+            if (this.sharedX > scrollThreshold) {
+                const excess = this.sharedX - scrollThreshold;
+                this.targetScrollSpeed = this.baseSpeed * (0.8 + this.activityLevel * 0.4) + excess * 3;
+
+                // Hard clamp at 70% - pen stays in right 1/3 area
+                const maxX = this.width * 0.70;
+                if (this.sharedX > maxX) {
+                    this.sharedX = maxX;
+                }
+            } else {
+                this.targetScrollSpeed = this.baseSpeed * (0.8 + this.activityLevel * 0.4);
+            }
+        } else {
+            this.targetScrollSpeed = 0;
         }
+
+        this.scrollSpeed = this.lerp(this.scrollSpeed, this.targetScrollSpeed, dt * 8);
     }
 
-    applyScroll(amount) {
+    applyScroll(dt) {
+        const scrollAmount = this.scrollSpeed * dt;
+        if (scrollAmount < 0.1) return;
+
         const ctx = this.offCtx;
 
         const imageData = ctx.getImageData(
-            Math.floor(amount), 0,
-            this.offCanvas.width - Math.floor(amount),
+            Math.floor(scrollAmount), 0,
+            this.offCanvas.width - Math.floor(scrollAmount),
             this.offCanvas.height
         );
 
@@ -322,17 +405,17 @@ export class CalligraphyOrchestra extends Visualizer {
         ctx.fillRect(0, 0, this.offCanvas.width, this.offCanvas.height);
         ctx.putImageData(imageData, 0, 0);
 
-        this.sharedX -= amount;
+        this.sharedX -= scrollAmount;
 
         for (const pen of this.pens) {
-            pen.applyScroll(amount);
+            pen.applyScroll(scrollAmount);
         }
     }
 
     drawStrokes() {
         const ctx = this.offCtx;
 
-        // Draw from back to front (higher layer = back, draw first)
+        // Draw from back to front (higher layer = back)
         for (let i = this.pens.length - 1; i >= 0; i--) {
             const pen = this.pens[i];
 
@@ -386,7 +469,7 @@ export class CalligraphyOrchestra extends Visualizer {
 
         ctx.drawImage(this.offCanvas, 0, 0);
 
-        // Draw pen indicators
+        // Draw pen indicators for active pens
         for (let i = 0; i < this.pens.length; i++) {
             const pen = this.pens[i];
             if (!pen.isPenDown && !pen.isLooping) continue;
@@ -417,15 +500,16 @@ export class CalligraphyOrchestra extends Visualizer {
             ctx.fill();
         }
 
-        // Channel legend (top right)
-        ctx.font = 'bold 10px Arial';
-        ctx.textAlign = 'right';
-        let legendY = 18;
-        for (const pen of this.pens) {
-            if (pen.isPenDown || pen.isLooping) {
+        // Channel legend (only show if multiple active)
+        if (this.activeChannels.length > 1) {
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'right';
+            let legendY = 80;
+            for (const chId of this.activeChannels) {
+                const pen = this.pens[chId];
                 const [r, g, b] = this.hslToRgb(pen.currentHue, 0.6, 0.5);
                 ctx.fillStyle = this.rgbString(r, g, b, 0.9 * pen.opacity);
-                ctx.fillText(`CH${pen.channelId + 1}`, this.width - 12, legendY);
+                ctx.fillText(`CH${chId + 1}`, this.width - 12, legendY);
                 legendY += 14;
             }
         }
